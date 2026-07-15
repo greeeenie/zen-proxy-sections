@@ -106,6 +106,47 @@
   display: none;
 }
 
+/* Collapse arrow — sized like Zen's "↓ Clear" arrow */
+.zen-proxy-arrow {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0.6;
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.zen-proxy-divider:not([mode="sections"]) .zen-proxy-arrow {
+  display: none;
+}
+
+.zen-proxy-section-header[collapsed] .zen-proxy-arrow,
+.zen-proxy-divider[mode="sections"][collapsed] .zen-proxy-arrow {
+  transform: rotate(-90deg);
+}
+
+.zen-proxy-section-header {
+  cursor: pointer;
+}
+
+.zen-proxy-section-header:hover .zen-proxy-arrow,
+.zen-proxy-divider[mode="sections"]:hover .zen-proxy-arrow {
+  opacity: 1;
+}
+
+.zen-proxy-section-header:hover .zen-proxy-section-header-label,
+.zen-proxy-section-header:hover::after {
+  opacity: 0.9;
+  border-top-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+/* Tabs of a collapsed section are hidden (the active tab stays visible) */
+.tabbrowser-tab[zen-proxy-hidden]:not([selected]):not([visuallyselected]) {
+  display: none;
+}
+
 .tabbrowser-tab[zen-proxy-direct] .tab-icon-image {
   filter: grayscale(0.15);
 }

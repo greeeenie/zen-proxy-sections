@@ -57,9 +57,15 @@ divider — without a proxy.
 The mod has two visual styles:
 
 - **Divider line** (default) — a single dashed `PROXY ↑ · DIRECT ↓` line.
-- **Section headers** — two section headers: `PROXY ↓` above the proxied tabs
-  and `DIRECT ↓` above the direct ones. The `DIRECT ↓` header is the same
-  boundary: it can be dragged; `PROXY ↓` is static.
+- **Section headers** — two section headers: `↓ PROXY` above the proxied tabs
+  and `↓ DIRECT` above the direct ones. The `↓ DIRECT` header is the same
+  boundary: it can be dragged; `↓ PROXY` is static.
+
+In sections mode the sections are collapsible: click a header to hide/show its
+tabs (the active tab stays visible). The collapsed state is saved per
+workspace in the `extensions.zen-proxy-divider.collapsed` pref. Dragging the
+`↓ DIRECT` header still moves the boundary — a click without movement toggles
+the collapse.
 
 Switch it in the mod settings (Sine → Zen Proxy Divider preferences) or
 manually via the `extensions.zen-proxy-divider.style` pref

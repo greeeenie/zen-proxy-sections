@@ -7,7 +7,7 @@
     "defaultValue": "divider",
     "options": [
       { "label": "Divider line (PROXY ↑ · DIRECT ↓)", "value": "divider" },
-      { "label": "Section headers (PROXY ↓ / DIRECT ↓)", "value": "sections" }
+      { "label": "Section headers (↓ PROXY / ↓ DIRECT)", "value": "sections" }
     ]
   }
 ]

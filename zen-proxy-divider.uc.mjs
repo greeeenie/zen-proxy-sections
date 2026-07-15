@@ -12,8 +12,10 @@
 
   const PREF_POSITIONS = "extensions.zen-proxy-divider.positions";
   const PREF_STYLE = "extensions.zen-proxy-divider.style";
+  const PREF_COLLAPSED = "extensions.zen-proxy-divider.collapsed";
   const DIVIDER_CLASS = "zen-proxy-divider";
   const HEADER_CLASS = "zen-proxy-section-header";
+  const ARROW_CLASS = "zen-proxy-arrow";
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
   const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 
@@ -179,19 +181,59 @@
     }
   }
 
+  function loadCollapsed() {
+    try {
+      const raw = Services.prefs.getStringPref(PREF_COLLAPSED, "{}");
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function isCollapsed(collapsedState, key, section) {
+    return !!collapsedState[key]?.[section];
+  }
+
+  function toggleCollapsed(container, section) {
+    if (!container) {
+      return;
+    }
+    const key = workspaceKeyFor(container);
+    const state = loadCollapsed();
+    const entry = state[key] || (state[key] = {});
+    entry[section] = !entry[section];
+    try {
+      Services.prefs.setStringPref(PREF_COLLAPSED, JSON.stringify(state));
+    } catch (e) {
+      logError("failed to save collapsed state", e);
+    }
+    scheduleUpdate();
+  }
+
+  function createArrow() {
+    const arrow = document.createXULElement("label");
+    arrow.className = ARROW_CLASS;
+    arrow.setAttribute("value", "↓");
+    return arrow;
+  }
+
   function applyDividerStyle(divider) {
     const mode = getStyleMode();
     divider.setAttribute("mode", mode);
     divider.setAttribute(
       "tooltiptext",
       mode === "sections"
-        ? "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary."
+        ? "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary, click to collapse."
         : "Tabs above go through the proxy, tabs below connect directly. Drag to move."
     );
+    if (!divider.querySelector("." + ARROW_CLASS)) {
+      divider.insertBefore(createArrow(), divider.firstChild);
+    }
     const label = divider.querySelector("." + DIVIDER_CLASS + "-label");
     label?.setAttribute(
       "value",
-      mode === "sections" ? "DIRECT ↓" : "PROXY ↑ · DIRECT ↓"
+      mode === "sections" ? "DIRECT" : "PROXY ↑ · DIRECT ↓"
     );
   }
 
@@ -211,12 +253,20 @@
     header.className = HEADER_CLASS;
     header.setAttribute(
       "tooltiptext",
-      "PROXY section: tabs below (down to the DIRECT section) go through the proxy."
+      "PROXY section: tabs below (down to the DIRECT section) go through the proxy. Click to collapse."
     );
+    header.appendChild(createArrow());
     const label = document.createXULElement("label");
     label.className = HEADER_CLASS + "-label";
-    label.setAttribute("value", "PROXY ↓");
+    label.setAttribute("value", "PROXY");
     header.appendChild(label);
+    header.addEventListener("click", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.stopPropagation();
+      toggleCollapsed(header.parentNode, "proxy");
+    });
     return header;
   }
 
@@ -281,6 +331,7 @@
     if (!sectionsMode) {
       return;
     }
+    const collapsedState = loadCollapsed();
     for (const [container, tabs] of groups) {
       if (!tabs.length) {
         continue;
@@ -299,6 +350,15 @@
       if (header.parentNode !== container || header.nextElementSibling !== first) {
         container.insertBefore(header, first);
       }
+      const key = workspaceKeyFor(container);
+      header.toggleAttribute(
+        "collapsed",
+        isCollapsed(collapsedState, key, "proxy")
+      );
+      divider?.toggleAttribute(
+        "collapsed",
+        isCollapsed(collapsedState, key, "direct")
+      );
     }
   }
 
@@ -313,9 +373,20 @@
       if (!container) {
         return;
       }
-      divider.setAttribute("dragging", "true");
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let moved = false;
 
       const onMove = (ev) => {
+        if (!moved) {
+          const dx = ev.clientX - startX;
+          const dy = ev.clientY - startY;
+          if (dx * dx + dy * dy < 16) {
+            return;
+          }
+          moved = true;
+          divider.setAttribute("dragging", "true");
+        }
         const tabs = unpinnedTabs().filter((t) => container.contains(t));
         if (!tabs.length) {
           return;
@@ -343,8 +414,12 @@
         window.removeEventListener("mousemove", onMove, true);
         window.removeEventListener("mouseup", onUp, true);
         divider.removeAttribute("dragging");
-        savePositions();
-        recompute();
+        if (moved) {
+          savePositions();
+          recompute();
+        } else if (getStyleMode() === "sections") {
+          toggleCollapsed(container, "direct");
+        }
       };
 
       window.addEventListener("mousemove", onMove, true);
@@ -753,6 +828,8 @@
     const prevSize = directBrowserIds.size;
     directBrowserIds.clear();
     const dividers = allDividers();
+    const collapsedState = loadCollapsed();
+    const sectionsMode = getStyleMode() === "sections";
     for (const tab of unpinnedTabs()) {
       let direct = false;
       for (const divider of dividers) {
@@ -771,10 +848,19 @@
       } else {
         tab.removeAttribute("zen-proxy-direct");
       }
+      const hide =
+        sectionsMode &&
+        isCollapsed(
+          collapsedState,
+          workspaceKeyFor(tab),
+          direct ? "direct" : "proxy"
+        );
+      tab.toggleAttribute("zen-proxy-hidden", hide);
     }
     for (const tab of gBrowser.tabs) {
       if (tab.pinned || tab.hasAttribute("zen-essential")) {
         tab.removeAttribute("zen-proxy-direct");
+        tab.removeAttribute("zen-proxy-hidden");
       }
     }
     if (directBrowserIds.size !== prevSize) {
@@ -873,7 +959,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.2.0, style:",
+        "initialized (v0.3.0, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
