@@ -3,10 +3,17 @@
 A mod for [Zen Browser](https://zen-browser.app): adds an extra divider to the
 sidebar (similar to the separator between pinned and regular tabs).
 
-- **Tabs ABOVE the divider** — traffic goes through the proxy configured in the
-  browser (Settings → General → Proxy: manual, PAC, or system).
-- **Tabs BELOW the divider** — connect directly, bypassing the proxy.
-- Pinned tabs, Essentials, and folders are always "above" the divider → proxied.
+Every tab has a **proxy flag**. Tabs with the flag route their traffic through
+the proxy configured in the browser (Settings → General → Proxy: manual, PAC,
+or system) and show a small **green dot** indicator; tabs without it connect
+directly.
+
+- **Regular tabs** — the flag is controlled by the divider: tabs on the PROXY
+  side have it, tabs on the DIRECT side don't (sides are configurable, see
+  below).
+- **Pinned tabs and Essentials** — toggle the flag manually: right-click the
+  tab → **Use Proxy**. Off by default (direct). The flag is persisted in the
+  session store and survives restarts.
 
 The divider is draggable with the mouse; its position is saved per workspace
 and survives browser restarts.
@@ -45,8 +52,9 @@ through **Sine** (a mod manager for Zen) or manually via **fx-autoconfig**.
    nothing — everything already goes direct).
 2. A dashed `PROXY ↑ · DIRECT ↓` line appears in the sidebar — drag it with
    the mouse to the desired spot among your regular tabs.
-3. Drag tabs above/below the line to change their mode. Tabs without a proxy
-   are marked with a small dot on the right.
+3. Drag tabs above/below the line to change their mode. Proxied tabs are
+   marked with a small green dot on the right.
+4. For pinned tabs and Essentials use right-click → **Use Proxy**.
 
 By default the divider appears **below all existing tabs** (everything goes
 through the proxy). New tabs open at the end of the list, i.e. **below** the

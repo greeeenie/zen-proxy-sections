@@ -177,16 +177,27 @@
   display: none;
 }
 
-.tabbrowser-tab[zen-proxy-direct] .tab-icon-image {
-  filter: grayscale(0.15);
-}
-
-.tabbrowser-tab[zen-proxy-direct] .tab-content::after {
+/* Green dot indicator on every tab whose traffic goes through the proxy */
+.tabbrowser-tab[zen-proxy-on] .tab-content::after {
   content: "";
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
+  flex: none;
   border-radius: 50%;
-  background: color-mix(in srgb, currentColor 35%, transparent);
+  background: #3fb950;
+  box-shadow: 0 0 4px color-mix(in srgb, #3fb950 80%, transparent);
   margin-inline-start: 4px;
   align-self: center;
+}
+
+/* Essentials are compact icon squares — pin the dot to the corner */
+.tabbrowser-tab[zen-essential][zen-proxy-on] .tab-content {
+  position: relative;
+}
+
+.tabbrowser-tab[zen-essential][zen-proxy-on] .tab-content::after {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin: 0;
 }

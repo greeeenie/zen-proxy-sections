@@ -15,6 +15,8 @@
   const PREF_DIVIDER_ORDER = "extensions.zen-proxy-divider.divider-order";
   const PREF_SECTIONS_ORDER = "extensions.zen-proxy-divider.sections-order";
   const PREF_COLLAPSED = "extensions.zen-proxy-divider.collapsed";
+  const SS_PROXY_KEY = "zen-proxy-divider-proxy";
+  const MENU_ITEM_ID = "zen-proxy-divider-menuitem";
   const DIVIDER_CLASS = "zen-proxy-divider";
   const HEADER_CLASS = "zen-proxy-section-header";
   const ARROW_CLASS = "zen-proxy-arrow";
@@ -891,6 +893,46 @@
     scheduleUpdate();
   }
 
+  // Manual proxy flag for pinned/Essentials tabs, persisted in the session
+  // store so it survives restarts.
+  function manualProxyFlag(tab) {
+    try {
+      return SessionStore.getCustomTabValue(tab, SS_PROXY_KEY) === "true";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setManualProxyFlag(tab, on) {
+    try {
+      if (on) {
+        SessionStore.setCustomTabValue(tab, SS_PROXY_KEY, "true");
+      } else {
+        SessionStore.deleteCustomTabValue(tab, SS_PROXY_KEY);
+      }
+    } catch (e) {
+      logError("failed to persist proxy flag", e);
+    }
+  }
+
+  function isManualTab(tab) {
+    return tab.pinned || tab.hasAttribute("zen-essential");
+  }
+
+  // Applies the per-tab proxy flag: attribute drives the green indicator,
+  // tabs WITHOUT the flag are routed directly by the channel filter.
+  function setProxyState(tab, proxyOn) {
+    if (proxyOn) {
+      tab.setAttribute("zen-proxy-on", "true");
+    } else {
+      tab.removeAttribute("zen-proxy-on");
+      const browserId = browserIdForTab(tab);
+      if (browserId) {
+        directBrowserIds.add(browserId);
+      }
+    }
+  }
+
   function recompute() {
     const prevSize = directBrowserIds.size;
     directBrowserIds.clear();
@@ -908,15 +950,7 @@
         direct = reversed ? !below : below;
         break;
       }
-      if (direct) {
-        tab.setAttribute("zen-proxy-direct", "true");
-        const browserId = browserIdForTab(tab);
-        if (browserId) {
-          directBrowserIds.add(browserId);
-        }
-      } else {
-        tab.removeAttribute("zen-proxy-direct");
-      }
+      setProxyState(tab, !direct);
       const hide =
         sectionsMode &&
         isCollapsed(
@@ -927,14 +961,80 @@
       tab.toggleAttribute("zen-proxy-hidden", hide);
     }
     for (const tab of gBrowser.tabs) {
-      if (tab.pinned || tab.hasAttribute("zen-essential")) {
-        tab.removeAttribute("zen-proxy-direct");
+      if (tab.isConnected && isManualTab(tab)) {
         tab.removeAttribute("zen-proxy-hidden");
+        setProxyState(tab, manualProxyFlag(tab));
       }
     }
     if (directBrowserIds.size !== prevSize) {
       log(directBrowserIds.size, "direct tab(s)");
     }
+  }
+
+  function contextMenuTabs() {
+    const tab = window.TabContextMenu?.contextTab;
+    if (!tab) {
+      return [];
+    }
+    const tabs = tab.multiselected ? gBrowser.selectedTabs : [tab];
+    return tabs.filter((t) => isManualTab(t));
+  }
+
+  function handleContextMenuShowing(event) {
+    const menu = event.currentTarget;
+    if (event.target !== menu) {
+      return;
+    }
+    const item = menu.querySelector("#" + MENU_ITEM_ID);
+    if (!item) {
+      return;
+    }
+    const tabs = contextMenuTabs();
+    // Only pinned/Essentials tabs are toggled manually; regular tabs are
+    // controlled by the divider position.
+    item.hidden = !tabs.length;
+    if (tabs.length && tabs.every((t) => manualProxyFlag(t))) {
+      item.setAttribute("checked", "true");
+    } else {
+      item.removeAttribute("checked");
+    }
+  }
+
+  function setupContextMenu() {
+    const menu = document.getElementById("tabContextMenu");
+    if (!menu || menu.querySelector("#" + MENU_ITEM_ID)) {
+      return;
+    }
+    const item = document.createXULElement("menuitem");
+    item.id = MENU_ITEM_ID;
+    item.setAttribute("type", "checkbox");
+    item.setAttribute("label", "Use Proxy");
+    item.setAttribute(
+      "tooltiptext",
+      "Route this tab's traffic through the browser proxy"
+    );
+    item.addEventListener("command", () => {
+      const tabs = contextMenuTabs();
+      if (!tabs.length) {
+        return;
+      }
+      const on = !tabs.every((t) => manualProxyFlag(t));
+      for (const tab of tabs) {
+        setManualProxyFlag(tab, on);
+      }
+      scheduleUpdate();
+    });
+    menu.appendChild(item);
+    menu.addEventListener("popupshowing", handleContextMenuShowing);
+  }
+
+  function removeContextMenu() {
+    const menu = document.getElementById("tabContextMenu");
+    if (!menu) {
+      return;
+    }
+    menu.removeEventListener("popupshowing", handleContextMenuShowing);
+    menu.querySelector("#" + MENU_ITEM_ID)?.remove();
   }
 
   function scheduleUpdate() {
@@ -997,11 +1097,13 @@
     for (const pref of [PREF_STYLE, PREF_DIVIDER_ORDER, PREF_SECTIONS_ORDER]) {
       Services.prefs.addObserver(pref, stylePrefObserver);
     }
+    setupContextMenu();
     window.addEventListener("unload", teardown, { once: true });
   }
 
   function teardown() {
     unregisterFilter();
+    removeContextMenu();
     for (const pref of [PREF_STYLE, PREF_DIVIDER_ORDER, PREF_SECTIONS_ORDER]) {
       try {
         Services.prefs.removeObserver(pref, stylePrefObserver);
@@ -1032,7 +1134,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.5.0, style:",
+        "initialized (v0.6.0, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
