@@ -11,7 +11,9 @@
   window.__zenProxyDivider = true;
 
   const PREF_POSITIONS = "extensions.zen-proxy-divider.positions";
+  const PREF_STYLE = "extensions.zen-proxy-divider.style";
   const DIVIDER_CLASS = "zen-proxy-divider";
+  const HEADER_CLASS = "zen-proxy-section-header";
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
   const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 
@@ -22,6 +24,12 @@
 
   const log = (...args) => console.log("[zen-proxy-divider]", ...args);
   const logError = (...args) => console.error("[zen-proxy-divider]", ...args);
+
+  const stylePrefObserver = {
+    observe() {
+      scheduleUpdate();
+    },
+  };
 
   const proxyFilter = {
     applyFilter(channel, defaultProxyInfo, callback) {
@@ -158,19 +166,58 @@
     return [...document.querySelectorAll("." + DIVIDER_CLASS)];
   }
 
+  function allHeaders() {
+    return [...document.querySelectorAll("." + HEADER_CLASS)];
+  }
+
+  function getStyleMode() {
+    try {
+      const value = Services.prefs.getStringPref(PREF_STYLE, "divider");
+      return value === "sections" ? "sections" : "divider";
+    } catch (e) {
+      return "divider";
+    }
+  }
+
+  function applyDividerStyle(divider) {
+    const mode = getStyleMode();
+    divider.setAttribute("mode", mode);
+    divider.setAttribute(
+      "tooltiptext",
+      mode === "sections"
+        ? "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary."
+        : "Tabs above go through the proxy, tabs below connect directly. Drag to move."
+    );
+    const label = divider.querySelector("." + DIVIDER_CLASS + "-label");
+    label?.setAttribute(
+      "value",
+      mode === "sections" ? "DIRECT ↓" : "PROXY ↑ · DIRECT ↓"
+    );
+  }
+
   function createDivider() {
     const divider = document.createXULElement("hbox");
     divider.className = DIVIDER_CLASS;
-    divider.setAttribute(
-      "tooltiptext",
-      "Вкладки выше — через прокси, ниже — напрямую. Перетащите, чтобы изменить."
-    );
     const label = document.createXULElement("label");
     label.className = DIVIDER_CLASS + "-label";
-    label.setAttribute("value", "PROXY ↑ · DIRECT ↓");
     divider.appendChild(label);
+    applyDividerStyle(divider);
     hookDividerDrag(divider);
     return divider;
+  }
+
+  function createSectionHeader() {
+    const header = document.createXULElement("hbox");
+    header.className = HEADER_CLASS;
+    header.setAttribute(
+      "tooltiptext",
+      "PROXY section: tabs below (down to the DIRECT section) go through the proxy."
+    );
+    const label = document.createXULElement("label");
+    label.className = HEADER_CLASS + "-label";
+    label.setAttribute("value", "PROXY ↓");
+    header.appendChild(label);
+    return header;
   }
 
   function insertDividerAt(divider, tabs, index, container) {
@@ -206,6 +253,9 @@
         ":scope > ." + DIVIDER_CLASS
       );
       if (existing || !tabs.length) {
+        if (existing) {
+          applyDividerStyle(existing);
+        }
         continue;
       }
       const divider = createDivider();
@@ -214,6 +264,41 @@
         ? positions[key]
         : tabs.length;
       insertDividerAt(divider, tabs, index, container);
+    }
+    ensureSectionHeaders(groups, tabs_);
+  }
+
+  function ensureSectionHeaders(groups, tabs_) {
+    const sectionsMode = getStyleMode() === "sections";
+    for (const header of allHeaders()) {
+      if (
+        !sectionsMode ||
+        !tabs_.some((t) => header.parentNode?.contains(t))
+      ) {
+        header.remove();
+      }
+    }
+    if (!sectionsMode) {
+      return;
+    }
+    for (const [container, tabs] of groups) {
+      if (!tabs.length) {
+        continue;
+      }
+      // The PROXY header goes before the first element of the section:
+      // either the first tab, or the DIRECT divider if it sits above all tabs.
+      const divider = container.querySelector(":scope > ." + DIVIDER_CLASS);
+      let first = tabs[0];
+      if (divider && divider.compareDocumentPosition(first) & FOLLOWING) {
+        first = divider;
+      }
+      let header = container.querySelector(":scope > ." + HEADER_CLASS);
+      if (!header) {
+        header = createSectionHeader();
+      }
+      if (header.parentNode !== container || header.nextElementSibling !== first) {
+        container.insertBefore(header, first);
+      }
     }
   }
 
@@ -729,7 +814,11 @@
     mutationObserver = new MutationObserver((mutations) => {
       const relevant = mutations.some((m) =>
         [...m.addedNodes, ...m.removedNodes].some(
-          (n) => !(n.classList?.contains?.(DIVIDER_CLASS))
+          (n) =>
+            !(
+              n.classList?.contains?.(DIVIDER_CLASS) ||
+              n.classList?.contains?.(HEADER_CLASS)
+            )
         )
       );
       if (relevant) {
@@ -750,11 +839,15 @@
     window.addEventListener("mousedown", handleMouseDown, true);
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("mouseup", handleMouseUp, true);
+    Services.prefs.addObserver(PREF_STYLE, stylePrefObserver);
     window.addEventListener("unload", teardown, { once: true });
   }
 
   function teardown() {
     unregisterFilter();
+    try {
+      Services.prefs.removeObserver(PREF_STYLE, stylePrefObserver);
+    } catch (e) {}
     mutationObserver?.disconnect();
     window.removeEventListener("dragstart", handleDragStart, true);
     window.removeEventListener("dragover", handleContainerDragover, true);
@@ -779,7 +872,12 @@
       addListeners();
       ensureDividers();
       recompute();
-      log("initialized (v0.1.13);", directBrowserIds.size, "direct tab(s)");
+      log(
+        "initialized (v0.2.0, style:",
+        getStyleMode() + ");",
+        directBrowserIds.size,
+        "direct tab(s)"
+      );
     } catch (e) {
       logError("init failed", e);
     }

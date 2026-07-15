@@ -1,77 +1,91 @@
 # Zen Proxy Divider
 
-Мод для [Zen Browser](https://zen-browser.app): добавляет в сайдбар ещё один
-дивайдер (как разделитель между закреплёнными и обычными вкладками).
+A mod for [Zen Browser](https://zen-browser.app): adds an extra divider to the
+sidebar (similar to the separator between pinned and regular tabs).
 
-- **Вкладки НАД дивайдером** — трафик идёт через прокси, настроенный в браузере
-  (Настройки → Основные → Прокси-сервер: ручной, PAC или системный).
-- **Вкладки ПОД дивайдером** — соединяются напрямую, без прокси.
-- Закреплённые вкладки, Essentials и папки всегда «над» дивайдером → через прокси.
+- **Tabs ABOVE the divider** — traffic goes through the proxy configured in the
+  browser (Settings → General → Proxy: manual, PAC, or system).
+- **Tabs BELOW the divider** — connect directly, bypassing the proxy.
+- Pinned tabs, Essentials, and folders are always "above" the divider → proxied.
 
-Дивайдер перетаскивается мышью, позиция сохраняется отдельно для каждого
-воркспейса и переживает перезапуск браузера.
+The divider is draggable with the mouse; its position is saved per workspace
+and survives browser restarts.
 
-## Почему это не обычный Zen Mod из магазина
+## Why this is not a regular Zen Mod from the store
 
-Моды из магазина Zen — это только CSS: они не могут управлять сетевым трафиком.
-Этот мод содержит привилегированный JS (`zen-proxy-divider.uc.mjs`), который
-перехватывает выбор прокси через `nsIProtocolProxyService`. Поэтому ставится он
-через **Sine** (менеджер модов для Zen) или вручную через **fx-autoconfig**.
+Mods from the Zen store are CSS-only: they cannot control network traffic.
+This mod ships privileged JS (`zen-proxy-divider.uc.mjs`) that intercepts
+proxy resolution via `nsIProtocolProxyService`. That's why it is installed
+through **Sine** (a mod manager for Zen) or manually via **fx-autoconfig**.
 
-## Установка
+## Installation
 
-### Вариант 1 — Sine (рекомендуется)
+### Option 1 — Sine (recommended)
 
-1. Установите [Sine](https://github.com/CosmoCreeper/Sine) (следуйте их README).
-2. Откройте настройки Zen → раздел Sine → «Install from repository».
-3. Вставьте URL этого репозитория и установите мод.
-4. Перезапустите Zen.
+1. Install [Sine](https://github.com/CosmoCreeper/Sine) (follow their README).
+2. Open Zen settings → Sine section → "Install from repository".
+3. Paste this repository's URL and install the mod.
+4. Restart Zen.
 
-### Вариант 2 — fx-autoconfig вручную
+### Option 2 — fx-autoconfig manually
 
-1. Установите [fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig)
-   (скопируйте `config.js` в каталог программы, `chrome/` — в профиль).
-2. Скопируйте `zen-proxy-divider.uc.mjs` в `<профиль>/chrome/JS/`.
-3. Подключите стили: добавьте в `<профиль>/chrome/userChrome.css`:
+1. Install [fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig)
+   (copy `config.js` into the program directory, `chrome/` into your profile).
+2. Copy `zen-proxy-divider.uc.mjs` into `<profile>/chrome/JS/`.
+3. Hook up the styles: add to `<profile>/chrome/userChrome.css`:
    ```css
    @import "zen-proxy-divider/chrome.css";
    ```
-   (или скопируйте содержимое `chrome.css` внутрь `userChrome.css`).
-4. В `about:support` нажмите «Очистить кэш запуска…» и перезапустите Zen.
+   (or copy the contents of `chrome.css` into `userChrome.css`).
+4. In `about:support` click "Clear startup cache…" and restart Zen.
 
-## Использование
+## Usage
 
-1. Настройте прокси в самом браузере (без него мод ничего не меняет — всё и так
-   идёт напрямую).
-2. В сайдбаре появится пунктирная линия `PROXY ↑ · DIRECT ↓` — перетащите её
-   мышью в нужное место среди обычных вкладок.
-3. Перетаскивайте вкладки выше/ниже линии, чтобы менять их режим. Вкладки без
-   прокси помечаются маленькой точкой справа.
+1. Configure a proxy in the browser itself (without one the mod changes
+   nothing — everything already goes direct).
+2. A dashed `PROXY ↑ · DIRECT ↓` line appears in the sidebar — drag it with
+   the mouse to the desired spot among your regular tabs.
+3. Drag tabs above/below the line to change their mode. Tabs without a proxy
+   are marked with a small dot on the right.
 
-По умолчанию дивайдер появляется **под всеми существующими вкладками** (всё
-через прокси). Новые вкладки открываются в конце списка, то есть **ниже**
-дивайдера — без прокси.
+By default the divider appears **below all existing tabs** (everything goes
+through the proxy). New tabs open at the end of the list, i.e. **below** the
+divider — without a proxy.
 
-## Ограничения и особенности
+## Appearance: divider line or sections
 
-- Применяется только к трафику, привязанному к вкладке. Фоновые запросы браузера
-  (обновления, telemetry, запросы расширений без вкладки) идут по прокси —
-  то есть по умолчанию браузера.
-- Уже открытые соединения не переключаются мгновенно: после перетаскивания
-  вкладки через дивайдер перезагрузите её (F5), чтобы гарантированно применить
-  новый режим.
-- Split View / Glance: у «взгляда» (glance) свой контейнер — его трафик идёт по
-  умолчанию (через прокси).
-- DNS: для SOCKS учитывается настройка «Отправлять DNS-запросы через прокси»
-  штатно, так как мод не подменяет прокси, а лишь отключает его для нижних
-  вкладок.
-- Позиция дивайдера хранится в pref `extensions.zen-proxy-divider.positions`
-  (JSON, ключ — id воркспейса).
+The mod has two visual styles:
 
-## Файлы
+- **Divider line** (default) — a single dashed `PROXY ↑ · DIRECT ↓` line.
+- **Section headers** — two section headers: `PROXY ↓` above the proxied tabs
+  and `DIRECT ↓` above the direct ones. The `DIRECT ↓` header is the same
+  boundary: it can be dragged; `PROXY ↓` is static.
 
-| Файл | Назначение |
+Switch it in the mod settings (Sine → Zen Proxy Divider preferences) or
+manually via the `extensions.zen-proxy-divider.style` pref
+(`divider` / `sections`) in `about:config` — it applies on the fly, no
+restart needed.
+
+## Limitations and notes
+
+- Applies only to traffic bound to a tab. Background browser requests
+  (updates, telemetry, extension requests without a tab) follow the proxy —
+  i.e. the browser default.
+- Already open connections do not switch instantly: after dragging a tab
+  across the divider, reload it (F5) to guarantee the new mode applies.
+- Split View / Glance: a glance has its own container — its traffic follows
+  the default (through the proxy).
+- DNS: for SOCKS the "Proxy DNS when using SOCKS" setting is respected as
+  usual, since the mod does not replace the proxy — it only disables it for
+  the tabs below.
+- The divider position is stored in the
+  `extensions.zen-proxy-divider.positions` pref (JSON, keyed by workspace id).
+
+## Files
+
+| File | Purpose |
 |---|---|
-| `zen-proxy-divider.uc.mjs` | Логика: дивайдер + пер-вкладочный прокси-фильтр |
-| `chrome.css` | Стили дивайдера и маркера «без прокси» |
-| `theme.json` | Метаданные мода для Sine |
+| `zen-proxy-divider.uc.mjs` | Logic: divider + per-tab proxy filter |
+| `chrome.css` | Styles for the divider and the "no proxy" marker |
+| `theme.json` | Mod metadata for Sine |
+| `preferences.json` | Mod settings (visual style switcher) |

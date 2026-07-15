@@ -66,6 +66,46 @@
   box-shadow: 0 -6px 10px -5px var(--zen-primary-color, #7aa2f7);
 }
 
+/* ---- Sections mode (extensions.zen-proxy-divider.style = "sections") ---- */
+
+.zen-proxy-section-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 8px 2px;
+  min-height: 14px;
+  user-select: none;
+  -moz-window-dragging: no-drag;
+}
+
+.zen-proxy-section-header::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed
+    color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.zen-proxy-section-header-label {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* In sections mode the divider looks like a DIRECT header:
+   label on the left, line on the right */
+.zen-proxy-divider[mode="sections"] {
+  margin: 6px 8px 2px;
+}
+
+.zen-proxy-divider[mode="sections"]::before {
+  display: none;
+}
+
 .tabbrowser-tab[zen-proxy-direct] .tab-icon-image {
   filter: grayscale(0.15);
 }

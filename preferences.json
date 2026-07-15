@@ -1,0 +1,13 @@
+[
+  {
+    "property": "extensions.zen-proxy-divider.style",
+    "label": "Visual style",
+    "type": "dropdown",
+    "placeholder": "Divider line",
+    "defaultValue": "divider",
+    "options": [
+      { "label": "Divider line (PROXY ↑ · DIRECT ↓)", "value": "divider" },
+      { "label": "Section headers (PROXY ↓ / DIRECT ↓)", "value": "sections" }
+    ]
+  }
+]
