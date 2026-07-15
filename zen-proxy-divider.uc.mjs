@@ -397,12 +397,14 @@
       }
       applyHeaderStyle(header);
       const key = workspaceKeyFor(container);
+      // NOTE: not "collapsed" — that's a built-in XUL attribute that would
+      // hide the element itself.
       header.toggleAttribute(
-        "collapsed",
+        "zen-section-collapsed",
         isCollapsed(collapsedState, key, topRole())
       );
       divider?.toggleAttribute(
-        "collapsed",
+        "zen-section-collapsed",
         isCollapsed(collapsedState, key, bottomRole())
       );
     }
@@ -1011,7 +1013,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.4.0, style:",
+        "initialized (v0.4.1, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"

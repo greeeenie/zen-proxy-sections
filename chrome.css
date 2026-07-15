@@ -122,8 +122,8 @@
   display: none;
 }
 
-.zen-proxy-section-header[collapsed] .zen-proxy-arrow,
-.zen-proxy-divider[mode="sections"][collapsed] .zen-proxy-arrow {
+.zen-proxy-section-header[zen-section-collapsed] .zen-proxy-arrow,
+.zen-proxy-divider[mode="sections"][zen-section-collapsed] .zen-proxy-arrow {
   transform: rotate(-90deg);
 }
 
