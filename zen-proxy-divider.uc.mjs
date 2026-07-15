@@ -235,9 +235,10 @@
   }
 
   function createArrow() {
-    const arrow = document.createXULElement("label");
+    // Icon is drawn in CSS (mask-image), so it renders the same in the
+    // expanded and collapsed states and just rotates.
+    const arrow = document.createXULElement("hbox");
     arrow.className = ARROW_CLASS;
-    arrow.setAttribute("value", "↓");
     return arrow;
   }
 
@@ -1013,7 +1014,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.4.1, style:",
+        "initialized (v0.4.2, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
