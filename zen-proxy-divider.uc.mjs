@@ -948,7 +948,9 @@
     s.bottom = "";
     s.transform = "";
     if (mode === "favicon") {
-      s.insetInlineEnd = "-2px";
+      // List tabs have an icon container wider than the favicon itself,
+      // so the badge needs a nudge left to land on the icon corner.
+      s.insetInlineEnd = tab.hasAttribute("zen-essential") ? "-2px" : "2px";
       s.bottom = "-2px";
     } else if (tab.hasAttribute("zen-essential")) {
       s.insetInlineEnd = "4px";
@@ -1236,7 +1238,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.7.2, style:",
+        "initialized (v0.7.3, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
