@@ -88,6 +88,8 @@ needed:
 | `extensions.zen-proxy-divider.style` | `divider` / `sections` |
 | `extensions.zen-proxy-divider.divider-order` | `proxy-direct` / `direct-proxy` |
 | `extensions.zen-proxy-divider.sections-order` | `proxy-direct` / `direct-proxy` |
+| `extensions.zen-proxy-divider.indicator-position` | `row` / `favicon` |
+| `extensions.zen-proxy-divider.indicator-color` | `green` / `gray` |
 
 ## Limitations and notes
 

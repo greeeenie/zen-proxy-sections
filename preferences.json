@@ -49,5 +49,39 @@
       }
     ],
     "placeholder": false
+  },
+  {
+    "property": "extensions.zen-proxy-divider.indicator-position",
+    "label": "Proxy indicator: position",
+    "type": "dropdown",
+    "defaultValue": "row",
+    "options": [
+      {
+        "label": "End of the tab row",
+        "value": "row"
+      },
+      {
+        "label": "On the favicon",
+        "value": "favicon"
+      }
+    ],
+    "placeholder": false
+  },
+  {
+    "property": "extensions.zen-proxy-divider.indicator-color",
+    "label": "Proxy indicator: color",
+    "type": "dropdown",
+    "defaultValue": "green",
+    "options": [
+      {
+        "label": "Green",
+        "value": "green"
+      },
+      {
+        "label": "Gray",
+        "value": "gray"
+      }
+    ],
+    "placeholder": false
   }
 ]

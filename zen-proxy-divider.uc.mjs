@@ -15,6 +15,8 @@
   const PREF_DIVIDER_ORDER = "extensions.zen-proxy-divider.divider-order";
   const PREF_SECTIONS_ORDER = "extensions.zen-proxy-divider.sections-order";
   const PREF_COLLAPSED = "extensions.zen-proxy-divider.collapsed";
+  const PREF_INDICATOR_POS = "extensions.zen-proxy-divider.indicator-position";
+  const PREF_INDICATOR_COLOR = "extensions.zen-proxy-divider.indicator-color";
   const SS_PROXY_KEY = "zen-proxy-divider-proxy";
   const MENU_ITEM_ID = "zen-proxy-divider-menuitem";
   const DIVIDER_CLASS = "zen-proxy-divider";
@@ -1037,6 +1039,29 @@
     menu.querySelector("#" + MENU_ITEM_ID)?.remove();
   }
 
+  // Indicator style is CSS-driven via attributes on the root element
+  function applyIndicatorAttrs() {
+    const root = document.documentElement;
+    let pos = "row";
+    let color = "green";
+    try {
+      pos = Services.prefs.getStringPref(PREF_INDICATOR_POS, "row");
+    } catch (e) {}
+    try {
+      color = Services.prefs.getStringPref(PREF_INDICATOR_COLOR, "green");
+    } catch (e) {}
+    if (pos === "favicon") {
+      root.setAttribute("zen-proxy-indicator", "favicon");
+    } else {
+      root.removeAttribute("zen-proxy-indicator");
+    }
+    if (color === "gray") {
+      root.setAttribute("zen-proxy-indicator-color", "gray");
+    } else {
+      root.removeAttribute("zen-proxy-indicator-color");
+    }
+  }
+
   function scheduleUpdate() {
     if (updateScheduled) {
       return;
@@ -1045,6 +1070,7 @@
     setTimeout(() => {
       updateScheduled = false;
       try {
+        applyIndicatorAttrs();
         ensureDividers();
         savePositions();
         recompute();
@@ -1094,7 +1120,13 @@
     window.addEventListener("mousedown", handleMouseDown, true);
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("mouseup", handleMouseUp, true);
-    for (const pref of [PREF_STYLE, PREF_DIVIDER_ORDER, PREF_SECTIONS_ORDER]) {
+    for (const pref of [
+      PREF_STYLE,
+      PREF_DIVIDER_ORDER,
+      PREF_SECTIONS_ORDER,
+      PREF_INDICATOR_POS,
+      PREF_INDICATOR_COLOR,
+    ]) {
       Services.prefs.addObserver(pref, stylePrefObserver);
     }
     setupContextMenu();
@@ -1104,7 +1136,13 @@
   function teardown() {
     unregisterFilter();
     removeContextMenu();
-    for (const pref of [PREF_STYLE, PREF_DIVIDER_ORDER, PREF_SECTIONS_ORDER]) {
+    for (const pref of [
+      PREF_STYLE,
+      PREF_DIVIDER_ORDER,
+      PREF_SECTIONS_ORDER,
+      PREF_INDICATOR_POS,
+      PREF_INDICATOR_COLOR,
+    ]) {
       try {
         Services.prefs.removeObserver(pref, stylePrefObserver);
       } catch (e) {}
@@ -1131,10 +1169,11 @@
     try {
       registerFilter();
       addListeners();
+      applyIndicatorAttrs();
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.6.0, style:",
+        "initialized (v0.7.0, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
