@@ -586,7 +586,34 @@
       if (clientX < rect.left - 8 || clientX > rect.right + 8) {
         return null;
       }
-      const placeBelow = clientY > rect.top + rect.height / 2;
+      const container = divider.parentNode;
+      const local = unpinnedTabs().filter(
+        (t) => container.contains(t) && !tabs.includes(t)
+      );
+      // Mirror the native drop indicator: the tab is inserted before the
+      // first tab whose midpoint is below the cursor. The chosen side of the
+      // divider therefore always matches the indicator line the user sees.
+      let insertBefore = null;
+      for (const t of local) {
+        const r = t.getBoundingClientRect();
+        if (clientY < r.top + r.height / 2) {
+          insertBefore = t;
+          break;
+        }
+      }
+      let placeBelow;
+      if (insertBefore) {
+        placeBelow = !!(
+          divider.compareDocumentPosition(insertBefore) & FOLLOWING
+        );
+      } else {
+        // Dropping after the last tab: below the divider unless the divider
+        // itself sits at the very bottom.
+        const last = local[local.length - 1];
+        placeBelow = last
+          ? !!(divider.compareDocumentPosition(last) & FOLLOWING)
+          : true;
+      }
       return { divider, tabs, placeBelow };
     }
     return null;
@@ -1032,7 +1059,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.5.0, style:",
+        "initialized (v0.5.1, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
