@@ -3,11 +3,30 @@
     "property": "extensions.zen-proxy-divider.style",
     "label": "Visual style",
     "type": "dropdown",
-    "placeholder": "Divider line",
     "defaultValue": "divider",
     "options": [
-      { "label": "Divider line (PROXY ↑ · DIRECT ↓)", "value": "divider" },
-      { "label": "Section headers (↓ PROXY / ↓ DIRECT)", "value": "sections" }
+      { "label": "Divider line", "value": "divider" },
+      { "label": "Section headers", "value": "sections" }
+    ]
+  },
+  {
+    "property": "extensions.zen-proxy-divider.divider-order",
+    "label": "Divider line: order (top to bottom)",
+    "type": "dropdown",
+    "defaultValue": "proxy-direct",
+    "options": [
+      { "label": "PROXY ↑ · DIRECT ↓", "value": "proxy-direct" },
+      { "label": "DIRECT ↑ · PROXY ↓", "value": "direct-proxy" }
+    ]
+  },
+  {
+    "property": "extensions.zen-proxy-divider.sections-order",
+    "label": "Section headers: order (top to bottom)",
+    "type": "dropdown",
+    "defaultValue": "proxy-direct",
+    "options": [
+      { "label": "PROXY, then DIRECT", "value": "proxy-direct" },
+      { "label": "DIRECT, then PROXY", "value": "direct-proxy" }
     ]
   }
 ]

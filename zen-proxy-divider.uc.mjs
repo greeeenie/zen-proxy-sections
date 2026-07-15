@@ -12,6 +12,8 @@
 
   const PREF_POSITIONS = "extensions.zen-proxy-divider.positions";
   const PREF_STYLE = "extensions.zen-proxy-divider.style";
+  const PREF_DIVIDER_ORDER = "extensions.zen-proxy-divider.divider-order";
+  const PREF_SECTIONS_ORDER = "extensions.zen-proxy-divider.sections-order";
   const PREF_COLLAPSED = "extensions.zen-proxy-divider.collapsed";
   const DIVIDER_CLASS = "zen-proxy-divider";
   const HEADER_CLASS = "zen-proxy-section-header";
@@ -181,6 +183,27 @@
     }
   }
 
+  // true — DIRECT on top, PROXY below (per the order pref of the active mode)
+  function isReversed() {
+    const pref =
+      getStyleMode() === "sections" ? PREF_SECTIONS_ORDER : PREF_DIVIDER_ORDER;
+    try {
+      return (
+        Services.prefs.getStringPref(pref, "proxy-direct") === "direct-proxy"
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function topRole() {
+    return isReversed() ? "direct" : "proxy";
+  }
+
+  function bottomRole() {
+    return isReversed() ? "proxy" : "direct";
+  }
+
   function loadCollapsed() {
     try {
       const raw = Services.prefs.getStringPref(PREF_COLLAPSED, "{}");
@@ -220,21 +243,47 @@
 
   function applyDividerStyle(divider) {
     const mode = getStyleMode();
+    const reversed = isReversed();
     divider.setAttribute("mode", mode);
-    divider.setAttribute(
-      "tooltiptext",
-      mode === "sections"
-        ? "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary, click to collapse."
-        : "Tabs above go through the proxy, tabs below connect directly. Drag to move."
-    );
+    let tooltip;
+    let labelValue;
+    if (mode === "sections") {
+      if (reversed) {
+        tooltip =
+          "PROXY section: tabs below go through the proxy, tabs above connect directly. Drag to move the boundary, click to collapse.";
+        labelValue = "PROXY";
+      } else {
+        tooltip =
+          "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary, click to collapse.";
+        labelValue = "DIRECT";
+      }
+    } else if (reversed) {
+      tooltip =
+        "Tabs above connect directly, tabs below go through the proxy. Drag to move.";
+      labelValue = "DIRECT ↑ · PROXY ↓";
+    } else {
+      tooltip =
+        "Tabs above go through the proxy, tabs below connect directly. Drag to move.";
+      labelValue = "PROXY ↑ · DIRECT ↓";
+    }
+    divider.setAttribute("tooltiptext", tooltip);
     if (!divider.querySelector("." + ARROW_CLASS)) {
       divider.insertBefore(createArrow(), divider.firstChild);
     }
     const label = divider.querySelector("." + DIVIDER_CLASS + "-label");
-    label?.setAttribute(
-      "value",
-      mode === "sections" ? "DIRECT" : "PROXY ↑ · DIRECT ↓"
+    label?.setAttribute("value", labelValue);
+  }
+
+  function applyHeaderStyle(header) {
+    const reversed = isReversed();
+    header.setAttribute(
+      "tooltiptext",
+      reversed
+        ? "DIRECT section: tabs below (down to the PROXY section) connect directly. Click to collapse."
+        : "PROXY section: tabs below (down to the DIRECT section) go through the proxy. Click to collapse."
     );
+    const label = header.querySelector("." + HEADER_CLASS + "-label");
+    label?.setAttribute("value", reversed ? "DIRECT" : "PROXY");
   }
 
   function createDivider() {
@@ -251,21 +300,17 @@
   function createSectionHeader() {
     const header = document.createXULElement("hbox");
     header.className = HEADER_CLASS;
-    header.setAttribute(
-      "tooltiptext",
-      "PROXY section: tabs below (down to the DIRECT section) go through the proxy. Click to collapse."
-    );
     header.appendChild(createArrow());
     const label = document.createXULElement("label");
     label.className = HEADER_CLASS + "-label";
-    label.setAttribute("value", "PROXY");
     header.appendChild(label);
+    applyHeaderStyle(header);
     header.addEventListener("click", (event) => {
       if (event.button !== 0) {
         return;
       }
       event.stopPropagation();
-      toggleCollapsed(header.parentNode, "proxy");
+      toggleCollapsed(header.parentNode, topRole());
     });
     return header;
   }
@@ -350,14 +395,15 @@
       if (header.parentNode !== container || header.nextElementSibling !== first) {
         container.insertBefore(header, first);
       }
+      applyHeaderStyle(header);
       const key = workspaceKeyFor(container);
       header.toggleAttribute(
         "collapsed",
-        isCollapsed(collapsedState, key, "proxy")
+        isCollapsed(collapsedState, key, topRole())
       );
       divider?.toggleAttribute(
         "collapsed",
-        isCollapsed(collapsedState, key, "direct")
+        isCollapsed(collapsedState, key, bottomRole())
       );
     }
   }
@@ -418,7 +464,7 @@
           savePositions();
           recompute();
         } else if (getStyleMode() === "sections") {
-          toggleCollapsed(container, "direct");
+          toggleCollapsed(container, bottomRole());
         }
       };
 
@@ -830,13 +876,15 @@
     const dividers = allDividers();
     const collapsedState = loadCollapsed();
     const sectionsMode = getStyleMode() === "sections";
+    const reversed = isReversed();
     for (const tab of unpinnedTabs()) {
       let direct = false;
       for (const divider of dividers) {
         if (!divider.parentNode?.contains(tab)) {
           continue;
         }
-        direct = !!(divider.compareDocumentPosition(tab) & FOLLOWING);
+        const below = !!(divider.compareDocumentPosition(tab) & FOLLOWING);
+        direct = reversed ? !below : below;
         break;
       }
       if (direct) {
@@ -925,15 +973,19 @@
     window.addEventListener("mousedown", handleMouseDown, true);
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("mouseup", handleMouseUp, true);
-    Services.prefs.addObserver(PREF_STYLE, stylePrefObserver);
+    for (const pref of [PREF_STYLE, PREF_DIVIDER_ORDER, PREF_SECTIONS_ORDER]) {
+      Services.prefs.addObserver(pref, stylePrefObserver);
+    }
     window.addEventListener("unload", teardown, { once: true });
   }
 
   function teardown() {
     unregisterFilter();
-    try {
-      Services.prefs.removeObserver(PREF_STYLE, stylePrefObserver);
-    } catch (e) {}
+    for (const pref of [PREF_STYLE, PREF_DIVIDER_ORDER, PREF_SECTIONS_ORDER]) {
+      try {
+        Services.prefs.removeObserver(pref, stylePrefObserver);
+      } catch (e) {}
+    }
     mutationObserver?.disconnect();
     window.removeEventListener("dragstart", handleDragStart, true);
     window.removeEventListener("dragover", handleContainerDragover, true);
@@ -959,7 +1011,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.3.0, style:",
+        "initialized (v0.4.0, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"

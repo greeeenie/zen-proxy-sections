@@ -67,10 +67,19 @@ workspace in the `extensions.zen-proxy-divider.collapsed` pref. Dragging the
 `↓ DIRECT` header still moves the boundary — a click without movement toggles
 the collapse.
 
-Switch it in the mod settings (Sine → Zen Proxy Divider preferences) or
-manually via the `extensions.zen-proxy-divider.style` pref
-(`divider` / `sections`) in `about:config` — it applies on the fly, no
-restart needed.
+Both styles also have an **order** setting that flips which side is proxied
+(top → bottom): `PROXY / DIRECT` (default) or `DIRECT / PROXY`. Labels,
+tooltips, and the actual proxy behavior follow the chosen order.
+
+Everything is switchable in the mod settings (Sine → Zen Proxy Divider
+preferences) or manually in `about:config` — applies on the fly, no restart
+needed:
+
+| Pref | Values |
+|---|---|
+| `extensions.zen-proxy-divider.style` | `divider` / `sections` |
+| `extensions.zen-proxy-divider.divider-order` | `proxy-direct` / `direct-proxy` |
+| `extensions.zen-proxy-divider.sections-order` | `proxy-direct` / `direct-proxy` |
 
 ## Limitations and notes
 
