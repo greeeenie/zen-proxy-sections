@@ -21,6 +21,7 @@
   const MENU_ITEM_ID = "zen-proxy-divider-menuitem";
   const DIVIDER_CLASS = "zen-proxy-divider";
   const HEADER_CLASS = "zen-proxy-section-header";
+  const DOT_CLASS = "zen-proxy-dot";
   const ARROW_CLASS = "zen-proxy-arrow";
   const ARROW_ICON_CLASS = "zen-proxy-arrow-icon";
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
@@ -921,9 +922,76 @@
     return tab.pinned || tab.hasAttribute("zen-essential");
   }
 
-  // Applies the per-tab proxy flag: attribute drives the green indicator,
+  function getIndicatorPos() {
+    try {
+      return Services.prefs.getStringPref(PREF_INDICATOR_POS, "row") ===
+        "favicon"
+        ? "favicon"
+        : "row";
+    } catch (e) {
+      return "row";
+    }
+  }
+
+  // Geometry is set inline: Zen's tab internals use grid layouts that break
+  // flow-positioned pseudo-elements, so the dot is a real element with
+  // absolute inline positioning. Color comes from chrome.css variables.
+  function positionDot(dot, tab, mode) {
+    const s = dot.style;
+    s.position = "absolute";
+    s.width = "5px";
+    s.height = "5px";
+    s.borderRadius = "50%";
+    s.pointerEvents = "none";
+    s.zIndex = "1";
+    s.top = "";
+    s.bottom = "";
+    s.transform = "";
+    if (mode === "favicon") {
+      s.insetInlineEnd = "-2px";
+      s.bottom = "-2px";
+    } else if (tab.hasAttribute("zen-essential")) {
+      s.insetInlineEnd = "4px";
+      s.top = "4px";
+    } else {
+      s.insetInlineEnd = "6px";
+      s.top = "50%";
+      s.transform = "translateY(-50%)";
+    }
+  }
+
+  function updateDot(tab, proxyOn, mode) {
+    let dot = tab.querySelector("." + DOT_CLASS);
+    if (!proxyOn) {
+      dot?.remove();
+      return;
+    }
+    const content = tab.querySelector(".tab-content");
+    if (!content) {
+      return;
+    }
+    let anchor = content;
+    if (mode === "favicon") {
+      anchor = tab.querySelector(".tab-icon-stack") || content;
+    }
+    if (!dot) {
+      dot = document.createXULElement("hbox");
+      dot.className = DOT_CLASS;
+    }
+    if (dot.parentNode !== anchor) {
+      anchor.appendChild(dot);
+    }
+    try {
+      if (getComputedStyle(anchor).position === "static") {
+        anchor.style.position = "relative";
+      }
+    } catch (e) {}
+    positionDot(dot, tab, mode);
+  }
+
+  // Applies the per-tab proxy flag: the dot indicator marks proxied tabs,
   // tabs WITHOUT the flag are routed directly by the channel filter.
-  function setProxyState(tab, proxyOn) {
+  function setProxyState(tab, proxyOn, indicatorMode) {
     if (proxyOn) {
       tab.setAttribute("zen-proxy-on", "true");
     } else {
@@ -933,6 +1001,7 @@
         directBrowserIds.add(browserId);
       }
     }
+    updateDot(tab, proxyOn, indicatorMode);
   }
 
   function recompute() {
@@ -942,6 +1011,7 @@
     const collapsedState = loadCollapsed();
     const sectionsMode = getStyleMode() === "sections";
     const reversed = isReversed();
+    const indicatorMode = getIndicatorPos();
     for (const tab of unpinnedTabs()) {
       let direct = false;
       for (const divider of dividers) {
@@ -952,7 +1022,7 @@
         direct = reversed ? !below : below;
         break;
       }
-      setProxyState(tab, !direct);
+      setProxyState(tab, !direct, indicatorMode);
       const hide =
         sectionsMode &&
         isCollapsed(
@@ -965,7 +1035,7 @@
     for (const tab of gBrowser.tabs) {
       if (tab.isConnected && isManualTab(tab)) {
         tab.removeAttribute("zen-proxy-hidden");
-        setProxyState(tab, manualProxyFlag(tab));
+        setProxyState(tab, manualProxyFlag(tab), indicatorMode);
       }
     }
     if (directBrowserIds.size !== prevSize) {
@@ -1039,22 +1109,14 @@
     menu.querySelector("#" + MENU_ITEM_ID)?.remove();
   }
 
-  // Indicator style is CSS-driven via attributes on the root element
+  // Indicator color is CSS-driven via an attribute on the root element;
+  // position is applied per-dot in positionDot().
   function applyIndicatorAttrs() {
     const root = document.documentElement;
-    let pos = "row";
     let color = "green";
-    try {
-      pos = Services.prefs.getStringPref(PREF_INDICATOR_POS, "row");
-    } catch (e) {}
     try {
       color = Services.prefs.getStringPref(PREF_INDICATOR_COLOR, "green");
     } catch (e) {}
-    if (pos === "favicon") {
-      root.setAttribute("zen-proxy-indicator", "favicon");
-    } else {
-      root.removeAttribute("zen-proxy-indicator");
-    }
     if (color === "gray") {
       root.setAttribute("zen-proxy-indicator-color", "gray");
     } else {
@@ -1098,7 +1160,8 @@
           (n) =>
             !(
               n.classList?.contains?.(DIVIDER_CLASS) ||
-              n.classList?.contains?.(HEADER_CLASS)
+              n.classList?.contains?.(HEADER_CLASS) ||
+              n.classList?.contains?.(DOT_CLASS)
             )
         )
       );
@@ -1173,7 +1236,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.7.1, style:",
+        "initialized (v0.7.2, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"

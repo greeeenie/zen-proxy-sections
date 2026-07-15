@@ -178,6 +178,9 @@
 }
 
 /* Dot indicator on every tab whose traffic goes through the proxy.
+   The dot is a real element injected by the script (geometry is inline —
+   Zen's grid-based tab internals break flow-positioned pseudo-elements);
+   only the color lives here.
    Color: pale green by default, neutral gray via the indicator-color pref. */
 :root {
   --zen-proxy-dot-color: color-mix(in srgb, #3fb950 80%, transparent);
@@ -190,59 +193,7 @@
   --zen-proxy-dot-glow: none;
 }
 
-/* Position "row" (default): dot at the end of the tab row.
-   .tab-content is a grid, so the dot must be absolutely positioned —
-   otherwise it wraps onto a new grid row under the favicon. */
-:root:not([zen-proxy-indicator="favicon"])
-  .tabbrowser-tab[zen-proxy-on]
-  .tab-content {
-  position: relative;
-}
-
-:root:not([zen-proxy-indicator="favicon"])
-  .tabbrowser-tab[zen-proxy-on]
-  .tab-content::after {
-  content: "";
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+.zen-proxy-dot {
   background: var(--zen-proxy-dot-color);
   box-shadow: var(--zen-proxy-dot-glow);
-  inset-inline-end: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-/* Essentials are compact icon squares — pin the dot to the corner */
-:root:not([zen-proxy-indicator="favicon"])
-  .tabbrowser-tab[zen-essential][zen-proxy-on]
-  .tab-content::after {
-  top: 4px;
-  inset-inline-end: 4px;
-  transform: none;
-}
-
-/* Position "favicon": badge in the bottom-right corner of the site icon */
-:root[zen-proxy-indicator="favicon"]
-  .tabbrowser-tab[zen-proxy-on]
-  .tab-icon-stack {
-  position: relative;
-}
-
-:root[zen-proxy-indicator="favicon"]
-  .tabbrowser-tab[zen-proxy-on]
-  .tab-icon-stack::after {
-  content: "";
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--zen-proxy-dot-color);
-  box-shadow: var(--zen-proxy-dot-glow);
-  pointer-events: none;
-  z-index: 1;
 }
