@@ -1,0 +1,24 @@
+{
+  "id": "zen-proxy-divider",
+  "name": "Zen Proxy Divider",
+  "description": "Adds a draggable divider to the Zen sidebar: tabs above it use the browser's proxy, tabs below it connect directly (no proxy).",
+  "homepage": "https://github.com/greeeenie/zen-proxy-sections",
+  "style": {
+    "chrome": "chrome.css"
+  },
+  "scripts": {
+    "zen-proxy-divider.uc.mjs": {
+      "include": [
+        "chrome://browser/content/browser.xhtml",
+        "chrome://browser/content/browser.xul"
+      ]
+    }
+  },
+  "readme": "https://raw.githubusercontent.com/greeeenie/zen-proxy-sections/main/README.md",
+  "author": "greenie",
+  "version": "0.1.4",
+  "tags": ["Scripts", "Zen", "Proxy", "Tabs"],
+  "createdAt": "2026-07-15",
+  "updatedAt": "2026-07-15",
+  "fork": ["zen"]
+}
