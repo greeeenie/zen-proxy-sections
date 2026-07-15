@@ -1173,7 +1173,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.7.0, style:",
+        "initialized (v0.7.1, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"

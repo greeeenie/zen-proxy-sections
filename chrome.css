@@ -190,35 +190,38 @@
   --zen-proxy-dot-glow: none;
 }
 
-/* Position "row" (default): dot at the end of the tab row */
+/* Position "row" (default): dot at the end of the tab row.
+   .tab-content is a grid, so the dot must be absolutely positioned —
+   otherwise it wraps onto a new grid row under the favicon. */
 :root:not([zen-proxy-indicator="favicon"])
   .tabbrowser-tab[zen-proxy-on]
-  .tab-content::after {
-  content: "";
-  width: 5px;
-  height: 5px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--zen-proxy-dot-color);
-  box-shadow: var(--zen-proxy-dot-glow);
-  margin-inline-start: 4px;
-  align-self: center;
-}
-
-/* Essentials are compact icon squares — pin the dot to the corner */
-:root:not([zen-proxy-indicator="favicon"])
-  .tabbrowser-tab[zen-essential][zen-proxy-on]
   .tab-content {
   position: relative;
 }
 
 :root:not([zen-proxy-indicator="favicon"])
+  .tabbrowser-tab[zen-proxy-on]
+  .tab-content::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--zen-proxy-dot-color);
+  box-shadow: var(--zen-proxy-dot-glow);
+  inset-inline-end: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Essentials are compact icon squares — pin the dot to the corner */
+:root:not([zen-proxy-indicator="favicon"])
   .tabbrowser-tab[zen-essential][zen-proxy-on]
   .tab-content::after {
-  position: absolute;
   top: 4px;
-  right: 4px;
-  margin: 0;
+  inset-inline-end: 4px;
+  transform: none;
 }
 
 /* Position "favicon": badge in the bottom-right corner of the site icon */
@@ -241,4 +244,5 @@
   background: var(--zen-proxy-dot-color);
   box-shadow: var(--zen-proxy-dot-glow);
   pointer-events: none;
+  z-index: 1;
 }
