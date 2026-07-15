@@ -126,6 +126,32 @@
   display: none;
 }
 
+/* Static up/down arrows next to PROXY/DIRECT in divider-line mode */
+.zen-proxy-arrow-icon {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  background-color: currentColor;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v10M3.5 8 8 12.5 12.5 8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.zen-proxy-arrow-icon[direction="up"] {
+  transform: rotate(180deg);
+}
+
+.zen-proxy-divider[mode="divider"] {
+  gap: 3px;
+}
+
+.zen-proxy-divider:hover .zen-proxy-arrow-icon {
+  opacity: 0.9;
+}
+
 .zen-proxy-section-header[zen-section-collapsed] .zen-proxy-arrow,
 .zen-proxy-divider[mode="sections"][zen-section-collapsed] .zen-proxy-arrow {
   transform: rotate(-90deg);

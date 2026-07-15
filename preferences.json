@@ -5,9 +5,16 @@
     "type": "dropdown",
     "defaultValue": "divider",
     "options": [
-      { "label": "Divider line", "value": "divider" },
-      { "label": "Section headers", "value": "sections" }
-    ]
+      {
+        "label": "Divider line",
+        "value": "divider"
+      },
+      {
+        "label": "Section headers",
+        "value": "sections"
+      }
+    ],
+    "placeholder": false
   },
   {
     "property": "extensions.zen-proxy-divider.divider-order",
@@ -15,9 +22,16 @@
     "type": "dropdown",
     "defaultValue": "proxy-direct",
     "options": [
-      { "label": "PROXY ↑ · DIRECT ↓", "value": "proxy-direct" },
-      { "label": "DIRECT ↑ · PROXY ↓", "value": "direct-proxy" }
-    ]
+      {
+        "label": "PROXY ↑ · DIRECT ↓",
+        "value": "proxy-direct"
+      },
+      {
+        "label": "DIRECT ↑ · PROXY ↓",
+        "value": "direct-proxy"
+      }
+    ],
+    "placeholder": false
   },
   {
     "property": "extensions.zen-proxy-divider.sections-order",
@@ -25,8 +39,15 @@
     "type": "dropdown",
     "defaultValue": "proxy-direct",
     "options": [
-      { "label": "PROXY, then DIRECT", "value": "proxy-direct" },
-      { "label": "DIRECT, then PROXY", "value": "direct-proxy" }
-    ]
+      {
+        "label": "PROXY, then DIRECT",
+        "value": "proxy-direct"
+      },
+      {
+        "label": "DIRECT, then PROXY",
+        "value": "direct-proxy"
+      }
+    ],
+    "placeholder": false
   }
 ]

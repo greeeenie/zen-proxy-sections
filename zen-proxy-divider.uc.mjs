@@ -18,6 +18,7 @@
   const DIVIDER_CLASS = "zen-proxy-divider";
   const HEADER_CLASS = "zen-proxy-section-header";
   const ARROW_CLASS = "zen-proxy-arrow";
+  const ARROW_ICON_CLASS = "zen-proxy-arrow-icon";
   const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
   const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
 
@@ -242,37 +243,57 @@
     return arrow;
   }
 
+  // Static up/down SVG arrow shown next to PROXY/DIRECT in divider-line mode
+  function createArrowIcon(direction) {
+    const icon = document.createXULElement("hbox");
+    icon.className = ARROW_ICON_CLASS;
+    icon.setAttribute("direction", direction);
+    return icon;
+  }
+
+  function createDividerLabel(value) {
+    const label = document.createXULElement("label");
+    label.className = DIVIDER_CLASS + "-label";
+    label.setAttribute("value", value);
+    return label;
+  }
+
   function applyDividerStyle(divider) {
     const mode = getStyleMode();
     const reversed = isReversed();
     divider.setAttribute("mode", mode);
-    let tooltip;
-    let labelValue;
+    divider.setAttribute(
+      "tooltiptext",
+      mode === "sections"
+        ? reversed
+          ? "PROXY section: tabs below go through the proxy, tabs above connect directly. Drag to move the boundary, click to collapse."
+          : "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary, click to collapse."
+        : reversed
+          ? "Tabs above connect directly, tabs below go through the proxy. Drag to move."
+          : "Tabs above go through the proxy, tabs below connect directly. Drag to move."
+    );
+    // Rebuild children only when mode/order actually changed
+    const sig = mode + ":" + (reversed ? "r" : "n");
+    if (divider.getAttribute("content-sig") === sig) {
+      return;
+    }
+    divider.setAttribute("content-sig", sig);
+    while (divider.firstChild) {
+      divider.firstChild.remove();
+    }
     if (mode === "sections") {
-      if (reversed) {
-        tooltip =
-          "PROXY section: tabs below go through the proxy, tabs above connect directly. Drag to move the boundary, click to collapse.";
-        labelValue = "PROXY";
-      } else {
-        tooltip =
-          "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary, click to collapse.";
-        labelValue = "DIRECT";
-      }
-    } else if (reversed) {
-      tooltip =
-        "Tabs above connect directly, tabs below go through the proxy. Drag to move.";
-      labelValue = "DIRECT ↑ · PROXY ↓";
+      divider.appendChild(createArrow());
+      divider.appendChild(createDividerLabel(reversed ? "PROXY" : "DIRECT"));
     } else {
-      tooltip =
-        "Tabs above go through the proxy, tabs below connect directly. Drag to move.";
-      labelValue = "PROXY ↑ · DIRECT ↓";
+      const [top, bottom] = reversed
+        ? ["DIRECT", "PROXY"]
+        : ["PROXY", "DIRECT"];
+      divider.appendChild(createDividerLabel(top));
+      divider.appendChild(createArrowIcon("up"));
+      divider.appendChild(createDividerLabel("·"));
+      divider.appendChild(createDividerLabel(bottom));
+      divider.appendChild(createArrowIcon("down"));
     }
-    divider.setAttribute("tooltiptext", tooltip);
-    if (!divider.querySelector("." + ARROW_CLASS)) {
-      divider.insertBefore(createArrow(), divider.firstChild);
-    }
-    const label = divider.querySelector("." + DIVIDER_CLASS + "-label");
-    label?.setAttribute("value", labelValue);
   }
 
   function applyHeaderStyle(header) {
@@ -290,9 +311,6 @@
   function createDivider() {
     const divider = document.createXULElement("hbox");
     divider.className = DIVIDER_CLASS;
-    const label = document.createXULElement("label");
-    label.className = DIVIDER_CLASS + "-label";
-    divider.appendChild(label);
     applyDividerStyle(divider);
     hookDividerDrag(divider);
     return divider;
@@ -1014,7 +1032,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.4.2, style:",
+        "initialized (v0.5.0, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
