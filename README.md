@@ -57,8 +57,19 @@ through **Sine** (a mod manager for Zen) or manually via **fx-autoconfig**.
 4. For pinned tabs and Essentials use right-click → **Use Proxy**.
 
 By default the divider appears **below all existing tabs** (everything goes
-through the proxy). New tabs open at the end of the list, i.e. **below** the
-divider — without a proxy.
+through the proxy).
+
+### Where new tabs open
+
+- A **fresh tab** (Ctrl+T, the New Tab button) opens on the default side
+  chosen in the mod settings (`New tabs: default side`, proxy by default).
+- A tab opened **from another tab** (link, `target="_blank"`, middle click)
+  always **inherits that tab's side**, regardless of the default: a video
+  opened from a YouTube tab in the proxy section lands in the proxy section
+  too. For pinned/Essentials openers the child follows their proxy flag.
+- Session-restored tabs keep their saved order and are never moved.
+- Links with `rel="noopener"` may leave no recognizable opener — such tabs
+  open on the default side.
 
 ## Appearance: divider line or sections
 
@@ -90,6 +101,7 @@ needed:
 | `extensions.zen-proxy-divider.sections-order` | `proxy-direct` / `direct-proxy` |
 | `extensions.zen-proxy-divider.indicator-position` | `row` / `favicon` |
 | `extensions.zen-proxy-divider.indicator-color` | `green` / `gray` |
+| `extensions.zen-proxy-divider.new-tab-side` | `proxy` / `direct` |
 
 ## Limitations and notes
 

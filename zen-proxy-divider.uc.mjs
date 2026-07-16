@@ -17,6 +17,7 @@
   const PREF_COLLAPSED = "extensions.zen-proxy-divider.collapsed";
   const PREF_INDICATOR_POS = "extensions.zen-proxy-divider.indicator-position";
   const PREF_INDICATOR_COLOR = "extensions.zen-proxy-divider.indicator-color";
+  const PREF_NEW_TAB_SIDE = "extensions.zen-proxy-divider.new-tab-side";
   const SS_PROXY_KEY = "zen-proxy-divider-proxy";
   const MENU_ITEM_ID = "zen-proxy-divider-menuitem";
   const DIVIDER_CLASS = "zen-proxy-divider";
@@ -31,6 +32,7 @@
   let mutationObserver = null;
   let updateScheduled = false;
   let filterRegistered = false;
+  let initTime = 0;
 
   const log = (...args) => console.log("[zen-proxy-divider]", ...args);
   const logError = (...args) => console.error("[zen-proxy-divider]", ...args);
@@ -896,6 +898,120 @@
     scheduleUpdate();
   }
 
+  // -------------------------------------------------------------------
+  // New tab placement: a tab opened FROM another tab (link, target=_blank,
+  // middle click) inherits the opener's proxy side; a fresh tab (Ctrl+T,
+  // the New Tab button) goes to the side chosen in the mod settings.
+  // -------------------------------------------------------------------
+
+  function newTabsGoDirect() {
+    try {
+      return (
+        Services.prefs.getStringPref(PREF_NEW_TAB_SIDE, "proxy") === "direct"
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function openerTabFor(tab) {
+    const candidates = [];
+    try {
+      if (tab.openerTab) {
+        candidates.push(tab.openerTab);
+      }
+    } catch (e) {}
+    try {
+      if (tab.owner) {
+        candidates.push(tab.owner);
+      }
+    } catch (e) {}
+    try {
+      // Covers window.open/target=_blank even when openerTab is not set.
+      const browser =
+        tab.linkedBrowser?.browsingContext?.opener?.top?.embedderElement;
+      if (browser) {
+        const t = gBrowser.getTabForBrowser(browser);
+        if (t) {
+          candidates.push(t);
+        }
+      }
+    } catch (e) {}
+    return (
+      candidates.find((t) => t && t !== tab && gBrowser.tabs.includes(t)) ||
+      null
+    );
+  }
+
+  function handleTabOpen(event) {
+    // Session restore replays TabOpen for every saved tab right after
+    // startup — their order is already correct, do not reshuffle it.
+    if (Date.now() - initTime < 5000) {
+      return;
+    }
+    const tab = event.target;
+    // Let Zen finish inserting the tab (and the opener wiring settle).
+    setTimeout(() => placeNewTab(tab), 0);
+  }
+
+  function placeNewTab(tab) {
+    if (
+      !tab?.isConnected ||
+      tab.pinned ||
+      tab.hasAttribute("zen-essential") ||
+      tab.hasAttribute("zen-empty-tab") ||
+      tab.hasAttribute("zen-glance-tab") ||
+      tab.hasAttribute("pending") // lazily restored tab — keep saved order
+    ) {
+      return;
+    }
+    const divider = allDividers().find((d) => d.parentNode?.contains(tab));
+    if (!divider) {
+      return;
+    }
+    const proxyIsBelow = isReversed();
+    let placeBelow;
+    let reason;
+    const opener = openerTabFor(tab);
+    if (opener) {
+      if (isManualTab(opener)) {
+        // Pinned/Essentials openers pass on their own proxy state.
+        placeBelow = manualProxyFlag(opener) ? proxyIsBelow : !proxyIsBelow;
+        reason = "inherited from pinned/essential opener";
+      } else {
+        const openerDivider = allDividers().find((d) =>
+          d.parentNode?.contains(opener)
+        );
+        if (openerDivider) {
+          placeBelow = !!(
+            openerDivider.compareDocumentPosition(opener) & FOLLOWING
+          );
+          reason = "inherited from opener";
+        }
+      }
+    }
+    if (placeBelow === undefined) {
+      placeBelow = newTabsGoDirect() ? !proxyIsBelow : proxyIsBelow;
+      reason = "default side";
+    }
+    const placement = { divider, tabs: [tab], placeBelow };
+    if (!placementWouldMove(placement)) {
+      return;
+    }
+    log(
+      "new tab →",
+      placeBelow === proxyIsBelow ? "proxy" : "direct",
+      `(${reason})`
+    );
+    applyPlacement(placement);
+    // Zen may still be animating/inserting; verify once after it settles.
+    setTimeout(() => {
+      if (!placementHolds(placement)) {
+        applyPlacement(placement);
+      }
+    }, 300);
+  }
+
   // Manual proxy flag for pinned/Essentials tabs, persisted in the session
   // store so it survives restarts.
   function manualProxyFlag(tab) {
@@ -1156,6 +1272,7 @@
     ]) {
       container.addEventListener(type, scheduleUpdate);
     }
+    container.addEventListener("TabOpen", handleTabOpen);
     mutationObserver = new MutationObserver((mutations) => {
       const relevant = mutations.some((m) =>
         [...m.addedNodes, ...m.removedNodes].some(
@@ -1201,6 +1318,9 @@
   function teardown() {
     unregisterFilter();
     removeContextMenu();
+    try {
+      gBrowser.tabContainer.removeEventListener("TabOpen", handleTabOpen);
+    } catch (e) {}
     for (const pref of [
       PREF_STYLE,
       PREF_DIVIDER_ORDER,
@@ -1232,13 +1352,14 @@
       return;
     }
     try {
+      initTime = Date.now();
       registerFilter();
       addListeners();
       applyIndicatorAttrs();
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.7.4, style:",
+        "initialized (v0.8.0, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
