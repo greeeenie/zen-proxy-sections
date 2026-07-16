@@ -1,128 +1,37 @@
 # Zen Proxy Divider
 
-A mod for [Zen Browser](https://zen-browser.app): adds an extra divider to the
-sidebar (similar to the separator between pinned and regular tabs).
+A [Zen Browser](https://zen-browser.app) mod that splits your sidebar into a
+**PROXY** and a **DIRECT** zone. Tabs in the proxy zone route traffic through
+the proxy configured in the browser; tabs in the direct zone bypass it.
+Proxied tabs show a small green dot.
 
-Every tab has a **proxy flag**. Tabs with the flag route their traffic through
-the proxy configured in the browser (Settings → General → Proxy: manual, PAC,
-or system) and show a small **green dot** indicator; tabs without it connect
-directly.
+## Install
 
-- **Regular tabs** — the flag is controlled by the divider: tabs on the PROXY
-  side have it, tabs on the DIRECT side don't (sides are configurable, see
-  below).
-- **Pinned tabs and Essentials** — toggle the flag manually: right-click the
-  tab → **Use Proxy**. Off by default (direct). The flag is persisted in the
-  session store and survives restarts.
-
-The divider is draggable with the mouse; its position is saved per workspace
-and survives browser restarts.
-
-## Why this is not a regular Zen Mod from the store
-
-Mods from the Zen store are CSS-only: they cannot control network traffic.
-This mod ships privileged JS (`zen-proxy-divider.uc.mjs`) that intercepts
-proxy resolution via `nsIProtocolProxyService`. That's why it is installed
-through **Sine** (a mod manager for Zen) or manually via **fx-autoconfig**.
-
-## Installation
-
-### Option 1 — Sine (recommended)
-
-1. Install [Sine](https://github.com/CosmoCreeper/Sine) (follow their README).
-2. Open Zen settings → Sine section → "Install from repository".
-3. Paste this repository's URL and install the mod.
-4. Restart Zen.
-
-### Option 2 — fx-autoconfig manually
-
-1. Install [fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig)
-   (copy `config.js` into the program directory, `chrome/` into your profile).
-2. Copy `zen-proxy-divider.uc.mjs` into `<profile>/chrome/JS/`.
-3. Hook up the styles: add to `<profile>/chrome/userChrome.css`:
-   ```css
-   @import "zen-proxy-divider/chrome.css";
-   ```
-   (or copy the contents of `chrome.css` into `userChrome.css`).
-4. In `about:support` click "Clear startup cache…" and restart Zen.
+Requires [Sine](https://github.com/CosmoCreeper/Sine): Zen settings → Sine →
+**Install from repository** → paste this repo URL → restart Zen.
 
 ## Usage
 
-1. Configure a proxy in the browser itself (without one the mod changes
-   nothing — everything already goes direct).
-2. A dashed `PROXY ↑ · DIRECT ↓` line appears in the sidebar — drag it with
-   the mouse to the desired spot among your regular tabs.
-3. Drag tabs above/below the line to change their mode. Proxied tabs are
-   marked with a small green dot on the right.
-4. For pinned tabs and Essentials use right-click → **Use Proxy**.
+- Configure a proxy in the browser first (Settings → General → Proxy).
+- Drag the `PROXY ↑ · DIRECT ↓` line to move the boundary; drag tabs across
+  it to change their mode.
+- Pinned tabs and Essentials: right-click → **Use Proxy** (off by default).
+- New tabs open on the side picked in settings; tabs opened from another tab
+  (links, `target="_blank"`) inherit that tab's side.
+- Reload a tab (F5) after moving it to guarantee the new mode applies.
 
-By default the divider appears **below all existing tabs** (everything goes
-through the proxy).
+## Settings (Sine → Zen Proxy Divider)
 
-### Where new tabs open
-
-- A **fresh tab** (Ctrl+T, the New Tab button) opens on the default side
-  chosen in the mod settings (`New tabs: default side`, proxy by default).
-- A tab opened **from another tab** (link, `target="_blank"`, middle click)
-  always **inherits that tab's side**, regardless of the default: a video
-  opened from a YouTube tab in the proxy section lands in the proxy section
-  too. For pinned/Essentials openers the child follows their proxy flag.
-- Session-restored tabs keep their saved order and are never moved.
-- Links with `rel="noopener"` may leave no recognizable opener — such tabs
-  open on the default side.
-
-## Appearance: divider line or sections
-
-The mod has two visual styles:
-
-- **Divider line** (default) — a single dashed `PROXY ↑ · DIRECT ↓` line.
-- **Section headers** — two section headers: `↓ PROXY` above the proxied tabs
-  and `↓ DIRECT` above the direct ones. The `↓ DIRECT` header is the same
-  boundary: it can be dragged; `↓ PROXY` is static.
-
-In sections mode the sections are collapsible: click a header to hide/show its
-tabs (the active tab stays visible). The collapsed state is saved per
-workspace in the `extensions.zen-proxy-divider.collapsed` pref. Dragging the
-`↓ DIRECT` header still moves the boundary — a click without movement toggles
-the collapse.
-
-Both styles also have an **order** setting that flips which side is proxied
-(top → bottom): `PROXY / DIRECT` (default) or `DIRECT / PROXY`. Labels,
-tooltips, and the actual proxy behavior follow the chosen order.
-
-Everything is switchable in the mod settings (Sine → Zen Proxy Divider
-preferences) or manually in `about:config` — applies on the fly, no restart
-needed:
-
-| Pref | Values |
+| Setting | Options |
 |---|---|
-| `extensions.zen-proxy-divider.style` | `divider` / `sections` |
-| `extensions.zen-proxy-divider.divider-order` | `proxy-direct` / `direct-proxy` |
-| `extensions.zen-proxy-divider.sections-order` | `proxy-direct` / `direct-proxy` |
-| `extensions.zen-proxy-divider.indicator-position` | `row` / `favicon` |
-| `extensions.zen-proxy-divider.indicator-color` | `green` / `gray` |
-| `extensions.zen-proxy-divider.new-tab-side` | `proxy` / `direct` |
+| Visual style | divider line / collapsible section headers |
+| Order (per style) | PROXY·DIRECT / DIRECT·PROXY |
+| Proxy indicator | end of row / on favicon; green / gray |
+| New tabs: default side | proxy / direct |
 
-## Limitations and notes
+## Notes
 
-- Applies only to traffic bound to a tab. Background browser requests
-  (updates, telemetry, extension requests without a tab) follow the proxy —
-  i.e. the browser default.
-- Already open connections do not switch instantly: after dragging a tab
-  across the divider, reload it (F5) to guarantee the new mode applies.
-- Split View / Glance: a glance has its own container — its traffic follows
-  the default (through the proxy).
-- DNS: for SOCKS the "Proxy DNS when using SOCKS" setting is respected as
-  usual, since the mod does not replace the proxy — it only disables it for
-  the tabs below.
-- The divider position is stored in the
-  `extensions.zen-proxy-divider.positions` pref (JSON, keyed by workspace id).
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `zen-proxy-divider.uc.mjs` | Logic: divider + per-tab proxy filter |
-| `chrome.css` | Styles for the divider and the "no proxy" marker |
-| `theme.json` | Mod metadata for Sine |
-| `preferences.json` | Mod settings (visual style switcher) |
+- Only tab-bound traffic is affected; background browser requests follow the
+  browser default (proxy).
+- Divider position, collapsed state, and all settings persist per workspace
+  across restarts.

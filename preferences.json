@@ -86,7 +86,7 @@
   },
   {
     "property": "extensions.zen-proxy-divider.new-tab-side",
-    "label": "New tabs: default side (tabs opened from another tab always inherit that tab's side)",
+    "label": "New tabs: default side",
     "type": "dropdown",
     "defaultValue": "proxy",
     "options": [
