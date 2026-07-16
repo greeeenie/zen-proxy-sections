@@ -995,14 +995,12 @@
       reason = "default side";
     }
     const placement = { divider, tabs: [tab], placeBelow };
+    const side = placeBelow === proxyIsBelow ? "proxy" : "direct";
     if (!placementWouldMove(placement)) {
+      log("new tab already on the", side, "side", `(${reason})`);
       return;
     }
-    log(
-      "new tab →",
-      placeBelow === proxyIsBelow ? "proxy" : "direct",
-      `(${reason})`
-    );
+    log("new tab →", side, `(${reason})`);
     applyPlacement(placement);
     // Zen may still be animating/inserting; verify once after it settles.
     setTimeout(() => {
@@ -1274,16 +1272,39 @@
     }
     container.addEventListener("TabOpen", handleTabOpen);
     mutationObserver = new MutationObserver((mutations) => {
-      const relevant = mutations.some((m) =>
-        [...m.addedNodes, ...m.removedNodes].some(
-          (n) =>
-            !(
-              n.classList?.contains?.(DIVIDER_CLASS) ||
-              n.classList?.contains?.(HEADER_CLASS) ||
-              n.classList?.contains?.(DOT_CLASS)
-            )
-        )
-      );
+      let relevant = false;
+      for (const m of mutations) {
+        if (m.type === "attributes") {
+          // Zen's fresh tabs (Ctrl+T, the New Tab button) start as an
+          // "empty tab" and become a real tab with NO TabOpen event when
+          // a URL is entered — the zen-empty-tab attribute is simply
+          // removed. Route them through the same new-tab placement.
+          const tab = m.target;
+          if (
+            m.oldValue !== null &&
+            !tab.hasAttribute?.("zen-empty-tab") &&
+            tab.matches?.("tab.tabbrowser-tab") &&
+            Date.now() - initTime > 5000
+          ) {
+            log("empty tab became real — placing it");
+            setTimeout(() => placeNewTab(tab), 0);
+            relevant = true;
+          }
+          continue;
+        }
+        if (
+          [...m.addedNodes, ...m.removedNodes].some(
+            (n) =>
+              !(
+                n.classList?.contains?.(DIVIDER_CLASS) ||
+                n.classList?.contains?.(HEADER_CLASS) ||
+                n.classList?.contains?.(DOT_CLASS)
+              )
+          )
+        ) {
+          relevant = true;
+        }
+      }
       if (relevant) {
         scheduleUpdate();
       }
@@ -1291,6 +1312,9 @@
     mutationObserver.observe(container, {
       childList: true,
       subtree: true,
+      attributes: true,
+      attributeFilter: ["zen-empty-tab"],
+      attributeOldValue: true,
     });
     window.addEventListener("dragstart", handleDragStart, true);
     window.addEventListener("dragover", handleContainerDragover, true);
@@ -1359,7 +1383,7 @@
       ensureDividers();
       recompute();
       log(
-        "initialized (v0.8.0, style:",
+        "initialized (v0.8.1, style:",
         getStyleMode() + ");",
         directBrowserIds.size,
         "direct tab(s)"
