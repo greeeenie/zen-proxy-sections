@@ -18,7 +18,8 @@ Requires [Sine](https://github.com/CosmoCreeper/Sine): Zen settings → Sine →
 - Pinned tabs and Essentials: right-click → **Use Proxy** (off by default).
 - New tabs open on the side picked in settings; tabs opened from another tab
   (links, `target="_blank"`) inherit that tab's side.
-- Reload a tab (F5) after moving it to guarantee the new mode applies.
+- A tab that switches sides reloads automatically so the new route applies
+  right away (can be turned off in settings).
 
 ## Settings (Sine → Zen Proxy Divider)
 
@@ -28,6 +29,7 @@ Requires [Sine](https://github.com/CosmoCreeper/Sine): Zen settings → Sine →
 | Order (per style) | PROXY·DIRECT / DIRECT·PROXY |
 | Proxy indicator | end of row / on favicon; green / gray |
 | New tabs: default side | proxy / direct |
+| Reload a tab when it switches sides | on / off |
 
 ## Notes
 

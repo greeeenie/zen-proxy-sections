@@ -16,6 +16,8 @@ if (-not (Test-Path $profilesRoot)) {
   Write-Error "Zen profiles directory not found: $profilesRoot"
 }
 
+$version = (Get-Content (Join-Path $repo "theme.json") -Raw | ConvertFrom-Json).version
+
 $deployed = 0
 foreach ($profile in Get-ChildItem $profilesRoot -Directory) {
   $modDir = Join-Path $profile.FullName "chrome\sine-mods\zen-proxy-divider"
@@ -25,7 +27,22 @@ foreach ($profile in Get-ChildItem $profilesRoot -Directory) {
   foreach ($file in $files) {
     Copy-Item (Join-Path $repo $file) $modDir -Force
   }
-  Write-Host "Deployed to $modDir"
+  Copy-Item (Join-Path $repo "src") $modDir -Recurse -Force
+  # Keep the version Sine shows in its settings dialog in sync.
+  $modsJsonPath = Join-Path $profile.FullName "chrome\sine-mods\mods.json"
+  if (Test-Path $modsJsonPath) {
+    try {
+      $mods = Get-Content $modsJsonPath -Raw | ConvertFrom-Json
+      if ($mods.'zen-proxy-divider') {
+        $mods.'zen-proxy-divider'.version = $version
+        $mods | ConvertTo-Json -Depth 10 -Compress |
+          Set-Content $modsJsonPath -Encoding utf8 -NoNewline
+      }
+    } catch {
+      Write-Warning "Could not update version in ${modsJsonPath}: $_"
+    }
+  }
+  Write-Host "Deployed to $modDir (v$version)"
   $deployed++
 }
 

@@ -100,5 +100,11 @@
       }
     ],
     "placeholder": false
+  },
+  {
+    "type": "checkbox",
+    "property": "extensions.zen-proxy-divider.reload-on-switch",
+    "label": "Reload a tab when it switches sides",
+    "defaultValue": true
   }
 ]
