@@ -25,8 +25,14 @@ let updateScheduled = false;
 // (crossing the divider, flipping the order, toggling the manual flag).
 const lastAppliedProxy = new WeakMap();
 
-function maybeReloadTab(tab) {
-  if (!reloadOnSwitch() || !tab.isConnected || tab.hasAttribute("pending")) {
+// force bypasses the reload-on-switch pref — used when a brand-new tab's
+// first load went through the wrong route and the content is simply wrong.
+export function maybeReloadTab(tab, force = false) {
+  if (
+    (!force && !reloadOnSwitch()) ||
+    !tab.isConnected ||
+    tab.hasAttribute("pending")
+  ) {
     return;
   }
   const browser = tab.linkedBrowser;

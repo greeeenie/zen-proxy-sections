@@ -10,8 +10,15 @@ import {
   isReversed,
   manualProxyFlag,
   log,
+  logError,
 } from "./prefs.mjs";
 import { isManualTab, openerTabFor } from "./tabs.mjs";
+import {
+  directBrowserIds,
+  lastRouteProxied,
+  browserIdForTab,
+} from "./proxy.mjs";
+import { maybeReloadTab } from "./update.mjs";
 import { allDividers } from "./divider.mjs";
 import {
   placementWouldMove,
@@ -40,18 +47,47 @@ export function handleKeyDown(event) {
     return;
   }
   const urlbar = window.gURLBar;
-  if (!urlbar?.textbox?.contains(event.target)) {
+  // dragstart taught us the target can be a Text node — climb first.
+  const node =
+    event.target?.nodeType === Node.TEXT_NODE
+      ? event.target.parentElement
+      : event.target;
+  const inUrlbar =
+    urlbar?.focused ||
+    urlbar?.textbox?.contains(node) ||
+    node?.closest?.("#urlbar, #urlbar-container, .urlbarView");
+  log(
+    "Alt+Enter keydown —",
+    inUrlbar ? "in URL bar" : "outside URL bar, ignoring",
+    `(target: ${node?.id || node?.nodeName || "?"}, focused: ${!!urlbar?.focused})`
+  );
+  if (!inUrlbar) {
     return;
   }
   event.preventDefault();
   event.stopImmediatePropagation();
-  altSideUntil = Date.now() + 1500;
-  log("Alt+Enter — next tab goes to the alternate side");
+  altSideUntil = Date.now() + 3000;
+  // Route the tab before the navigation even starts, so the very first
+  // document request already takes the intended side.
+  const selectedTab = gBrowser.selectedTab;
+  if (selectedTab?.hasAttribute("zen-empty-tab")) {
+    preRouteNewTab(selectedTab);
+  }
+  // Hand the urlbar a modifier-free Enter so whereToOpenLink() says
+  // "current" — Zen may wrap handleCommand, so always pass an event.
+  const plainEnter = new KeyboardEvent("keydown", {
+    key: "Enter",
+    code: "Enter",
+    keyCode: KeyboardEvent.DOM_VK_RETURN,
+    bubbles: true,
+    cancelable: true,
+  });
   try {
-    urlbar.handleCommand();
+    urlbar.handleCommand(plainEnter);
+    log("Alt+Enter — committed, next tab goes to the alternate side");
   } catch (e) {
     altSideUntil = 0;
-    throw e;
+    logError("Alt+Enter commit failed", e);
   }
 }
 
@@ -61,6 +97,91 @@ function consumeAltSide() {
     return true;
   }
   return false;
+}
+
+function peekAltSide() {
+  return Date.now() < altSideUntil;
+}
+
+// Where should this tab go? proxyOn is the side's proxy state; the flag
+// is only consumed by the final placement, peeked by the pre-route.
+function decideNewTabSide(tab, consumeFlag) {
+  if (consumeFlag ? consumeAltSide() : peekAltSide()) {
+    return { proxyOn: newTabsGoDirect(), reason: "Alt+Enter — alternate side" };
+  }
+  const opener = openerTabFor(tab);
+  if (opener) {
+    if (isManualTab(opener)) {
+      return {
+        proxyOn: manualProxyFlag(opener),
+        reason: "inherited from pinned/essential opener",
+      };
+    }
+    const openerDivider = allDividers().find((d) =>
+      d.parentNode?.contains(opener)
+    );
+    if (openerDivider) {
+      const openerBelow = !!(
+        openerDivider.compareDocumentPosition(opener) & FOLLOWING
+      );
+      return {
+        proxyOn: openerBelow === isReversed(),
+        reason: "inherited from opener",
+      };
+    }
+  }
+  return { proxyOn: !newTabsGoDirect(), reason: "default side" };
+}
+
+// Route the browser BEFORE its first network request: the channel filter
+// consults directBrowserIds the moment the load starts, which is earlier
+// than the DOM placement and the recompute it triggers. A recompute may
+// briefly override this, so verifyRoute() below is the safety net.
+function preRouteNewTab(tab) {
+  if (
+    tab.pinned ||
+    tab.hasAttribute("zen-essential") ||
+    tab.hasAttribute("zen-glance-tab")
+  ) {
+    return;
+  }
+  const browserId = browserIdForTab(tab);
+  if (!browserId) {
+    return;
+  }
+  const { proxyOn, reason } = decideNewTabSide(tab, false);
+  if (proxyOn) {
+    directBrowserIds.delete(browserId);
+  } else {
+    directBrowserIds.add(browserId);
+  }
+  log("pre-routed new tab:", proxyOn ? "proxy" : "direct", `(${reason})`);
+}
+
+// The first document load can still race the pre-route; compare the route
+// it actually took with the intended one and reload once if they differ.
+function verifyRoute(tab, proxyOn) {
+  if (!tab.isConnected) {
+    return;
+  }
+  const actual = lastRouteProxied.get(browserIdForTab(tab));
+  if (actual === undefined || actual === proxyOn) {
+    return;
+  }
+  log(
+    "first load took the wrong route — reloading through",
+    proxyOn ? "proxy" : "direct"
+  );
+  maybeReloadTab(tab, true);
+}
+
+function scheduleRouteVerify(tab, proxyOn) {
+  // Late checks catch slow sites whose document response arrives after
+  // the early ones (a corrected load resets lastRouteProxied, so a
+  // successful reload makes the later checks no-ops).
+  for (const delay of [700, 2000, 5000]) {
+    setTimeout(() => verifyRoute(tab, proxyOn), delay);
+  }
 }
 
 function inStartupWindow() {
@@ -74,6 +195,7 @@ export function handleTabOpen(event) {
     return;
   }
   const tab = event.target;
+  preRouteNewTab(tab);
   // Let Zen finish inserting the tab (and the opener wiring settle).
   setTimeout(() => placeNewTab(tab), 0);
 }
@@ -91,6 +213,7 @@ export function handleTabAttrMutation(mutation) {
     !inStartupWindow()
   ) {
     log("empty tab became real — placing it");
+    preRouteNewTab(tab);
     setTimeout(() => placeNewTab(tab), 0);
     return true;
   }
@@ -113,36 +236,11 @@ function placeNewTab(tab) {
     return;
   }
   const proxyIsBelow = isReversed();
-  let placeBelow;
-  let reason;
-  const opener = openerTabFor(tab);
-  if (consumeAltSide()) {
-    // Explicit user gesture — overrides both the default and inheritance.
-    placeBelow = newTabsGoDirect() ? proxyIsBelow : !proxyIsBelow;
-    reason = "Alt+Enter — alternate side";
-  } else if (opener) {
-    if (isManualTab(opener)) {
-      // Pinned/Essentials openers pass on their own proxy state.
-      placeBelow = manualProxyFlag(opener) ? proxyIsBelow : !proxyIsBelow;
-      reason = "inherited from pinned/essential opener";
-    } else {
-      const openerDivider = allDividers().find((d) =>
-        d.parentNode?.contains(opener)
-      );
-      if (openerDivider) {
-        placeBelow = !!(
-          openerDivider.compareDocumentPosition(opener) & FOLLOWING
-        );
-        reason = "inherited from opener";
-      }
-    }
-  }
-  if (placeBelow === undefined) {
-    placeBelow = newTabsGoDirect() ? !proxyIsBelow : proxyIsBelow;
-    reason = "default side";
-  }
+  const { proxyOn, reason } = decideNewTabSide(tab, true);
+  const placeBelow = proxyOn ? proxyIsBelow : !proxyIsBelow;
   const placement = { divider, tabs: [tab], placeBelow };
-  const side = placeBelow === proxyIsBelow ? "proxy" : "direct";
+  const side = proxyOn ? "proxy" : "direct";
+  scheduleRouteVerify(tab, proxyOn);
   if (!placementWouldMove(placement)) {
     log("new tab already on the", side, "side", `(${reason})`);
     return;

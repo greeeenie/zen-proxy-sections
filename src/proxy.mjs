@@ -3,17 +3,27 @@
 
 export const directBrowserIds = new Set();
 
+// Route the last top-level document load of each browser actually took
+// (true = proxied). Lets newtab.mjs detect a first load that raced ahead
+// of the side assignment and went through the wrong route.
+export const lastRouteProxied = new Map();
+
 let filterRegistered = false;
 
 const proxyFilter = {
   applyFilter(channel, defaultProxyInfo, callback) {
     let result = defaultProxyInfo;
     try {
-      if (defaultProxyInfo && directBrowserIds.size) {
-        const browserId = browserIdForChannel(channel);
-        if (browserId && directBrowserIds.has(browserId)) {
-          result = null;
-        }
+      const browserId = browserIdForChannel(channel);
+      if (result && browserId && directBrowserIds.has(browserId)) {
+        result = null;
+      }
+      if (
+        browserId &&
+        channel.loadInfo?.externalContentPolicyType ===
+          Ci.nsIContentPolicy.TYPE_DOCUMENT
+      ) {
+        lastRouteProxied.set(browserId, result !== null);
       }
     } catch (e) {}
     callback.onProxyFilterResult(result);

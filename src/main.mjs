@@ -34,7 +34,7 @@ import {
 } from "./newtab.mjs";
 import { setupContextMenu, removeContextMenu } from "./menu.mjs";
 
-const VERSION = "0.10.0";
+const VERSION = "0.10.2";
 
 const STYLE_PREFS = [
   PREF_STYLE,
