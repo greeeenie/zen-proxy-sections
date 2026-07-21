@@ -1,6 +1,8 @@
 // New tab placement: a tab opened FROM another tab (link, target=_blank,
 // middle click) inherits the opener's proxy side; a fresh tab (Ctrl+T,
 // the New Tab button) goes to the side chosen in the mod settings.
+// Alt+Enter in the URL bar sends the tab to the opposite of the default
+// side instead.
 
 import {
   FOLLOWING,
@@ -18,9 +20,47 @@ import {
 } from "./dnd.mjs";
 
 let initTime = 0;
+let altSideUntil = 0;
 
 export function markInitTime() {
   initTime = Date.now();
+}
+
+// Alt+Enter in the URL bar: commit as a plain Enter (Firefox's own
+// Alt+Enter would spawn an extra tab), but flag the resulting tab to go
+// to the opposite of the default side.
+export function handleKeyDown(event) {
+  if (
+    event.key !== "Enter" ||
+    !event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey
+  ) {
+    return;
+  }
+  const urlbar = window.gURLBar;
+  if (!urlbar?.textbox?.contains(event.target)) {
+    return;
+  }
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  altSideUntil = Date.now() + 1500;
+  log("Alt+Enter — next tab goes to the alternate side");
+  try {
+    urlbar.handleCommand();
+  } catch (e) {
+    altSideUntil = 0;
+    throw e;
+  }
+}
+
+function consumeAltSide() {
+  if (Date.now() < altSideUntil) {
+    altSideUntil = 0;
+    return true;
+  }
+  return false;
 }
 
 function inStartupWindow() {
@@ -76,7 +116,11 @@ function placeNewTab(tab) {
   let placeBelow;
   let reason;
   const opener = openerTabFor(tab);
-  if (opener) {
+  if (consumeAltSide()) {
+    // Explicit user gesture — overrides both the default and inheritance.
+    placeBelow = newTabsGoDirect() ? proxyIsBelow : !proxyIsBelow;
+    reason = "Alt+Enter — alternate side";
+  } else if (opener) {
     if (isManualTab(opener)) {
       // Pinned/Essentials openers pass on their own proxy state.
       placeBelow = manualProxyFlag(opener) ? proxyIsBelow : !proxyIsBelow;

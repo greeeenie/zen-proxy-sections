@@ -30,10 +30,11 @@ import {
   markInitTime,
   handleTabOpen,
   handleTabAttrMutation,
+  handleKeyDown,
 } from "./newtab.mjs";
 import { setupContextMenu, removeContextMenu } from "./menu.mjs";
 
-const VERSION = "0.9.0";
+const VERSION = "0.10.0";
 
 const STYLE_PREFS = [
   PREF_STYLE,
@@ -111,6 +112,7 @@ function addListeners() {
   window.addEventListener("mousedown", handleMouseDown, true);
   window.addEventListener("mousemove", handleMouseMove, true);
   window.addEventListener("mouseup", handleMouseUp, true);
+  window.addEventListener("keydown", handleKeyDown, true);
   for (const pref of STYLE_PREFS) {
     Services.prefs.addObserver(pref, stylePrefObserver);
   }
@@ -140,6 +142,7 @@ function teardown() {
   window.removeEventListener("mousedown", handleMouseDown, true);
   window.removeEventListener("mousemove", handleMouseMove, true);
   window.removeEventListener("mouseup", handleMouseUp, true);
+  window.removeEventListener("keydown", handleKeyDown, true);
   directBrowserIds.clear();
 }
 
