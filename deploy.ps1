@@ -35,8 +35,13 @@ foreach ($profile in Get-ChildItem $profilesRoot -Directory) {
       $mods = Get-Content $modsJsonPath -Raw | ConvertFrom-Json
       if ($mods.'zen-proxy-divider') {
         $mods.'zen-proxy-divider'.version = $version
-        $mods | ConvertTo-Json -Depth 10 -Compress |
-          Set-Content $modsJsonPath -Encoding utf8 -NoNewline
+        # NB: not Set-Content -Encoding utf8 — PS 5.1 writes a UTF-8 BOM,
+        # which breaks strict JSON parsers.
+        [IO.File]::WriteAllText(
+          $modsJsonPath,
+          ($mods | ConvertTo-Json -Depth 10 -Compress),
+          (New-Object System.Text.UTF8Encoding($false))
+        )
       }
     } catch {
       Write-Warning "Could not update version in ${modsJsonPath}: $_"
