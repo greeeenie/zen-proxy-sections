@@ -35,6 +35,8 @@ foreach ($profile in Get-ChildItem $profilesRoot -Directory) {
       $mods = Get-Content $modsJsonPath -Raw | ConvertFrom-Json
       if ($mods.'zen-proxy-divider') {
         $mods.'zen-proxy-divider'.version = $version
+        # A local development build must not be replaced on the next start.
+        $mods.'zen-proxy-divider'.'no-updates' = $true
         # NB: not Set-Content -Encoding utf8 — PS 5.1 writes a UTF-8 BOM,
         # which breaks strict JSON parsers.
         [IO.File]::WriteAllText(

@@ -22,7 +22,11 @@ import { unpinnedTabs, workspaceKeyFor } from "./tabs.mjs";
 import { scheduleUpdate, recompute } from "./update.mjs";
 
 export function allDividers() {
-  return [...document.querySelectorAll("." + DIVIDER_CLASS)];
+  return [
+    ...document.querySelectorAll(
+      "." + DIVIDER_CLASS + ":not([drag-preview])"
+    ),
+  ];
 }
 
 export function allHeaders() {
@@ -279,6 +283,28 @@ function hookDividerDrag(divider) {
     const startX = event.clientX;
     const startY = event.clientY;
     let moved = false;
+    let dragPreview = null;
+    let grabOffsetY = 0;
+
+    const placeDivider = (clientY) => {
+      const tabs = unpinnedTabs().filter((t) => container.contains(t));
+      if (!tabs.length) {
+        return;
+      }
+      for (const tab of tabs) {
+        const rect = tab.getBoundingClientRect();
+        if (clientY < rect.top + rect.height / 2) {
+          if (tab.previousElementSibling !== divider) {
+            tab.parentNode.insertBefore(divider, tab);
+          }
+          return;
+        }
+      }
+      const last = tabs[tabs.length - 1];
+      if (divider.previousElementSibling !== last) {
+        last.after(divider);
+      }
+    };
 
     const onMove = (ev) => {
       if (!moved) {
@@ -289,35 +315,33 @@ function hookDividerDrag(divider) {
         }
         moved = true;
         divider.setAttribute("dragging", "true");
+        const rect = divider.getBoundingClientRect();
+        grabOffsetY = startY - rect.top;
+        dragPreview = divider.cloneNode(true);
+        dragPreview.setAttribute("drag-preview", "true");
+        dragPreview.style.position = "fixed";
+        dragPreview.style.left = `${rect.left}px`;
+        dragPreview.style.top = `${rect.top}px`;
+        dragPreview.style.width = `${rect.width}px`;
+        dragPreview.style.height = `${rect.height}px`;
+        dragPreview.style.margin = "0";
+        dragPreview.style.zIndex = "2147483647";
+        dragPreview.style.pointerEvents = "none";
+        document.documentElement.appendChild(dragPreview);
+        divider.style.visibility = "hidden";
       }
-      const tabs = unpinnedTabs().filter((t) => container.contains(t));
-      if (!tabs.length) {
-        return;
-      }
-      let placed = false;
-      for (const tab of tabs) {
-        const rect = tab.getBoundingClientRect();
-        if (ev.clientY < rect.top + rect.height / 2) {
-          if (tab.previousElementSibling !== divider) {
-            tab.parentNode.insertBefore(divider, tab);
-          }
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        const last = tabs[tabs.length - 1];
-        if (divider.previousElementSibling !== last) {
-          last.after(divider);
-        }
-      }
+      dragPreview.style.top = `${ev.clientY - grabOffsetY}px`;
+      placeDivider(ev.clientY);
     };
 
-    const onUp = () => {
+    const onUp = (ev) => {
       window.removeEventListener("mousemove", onMove, true);
       window.removeEventListener("mouseup", onUp, true);
       divider.removeAttribute("dragging");
+      divider.style.removeProperty("visibility");
+      dragPreview?.remove();
       if (moved) {
+        placeDivider(ev.clientY);
         savePositions();
         recompute();
       } else if (getStyleMode() === "sections") {

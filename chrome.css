@@ -41,12 +41,6 @@
   cursor: grabbing;
 }
 
-.zen-proxy-divider[dragging]::before,
-.zen-proxy-divider[dragging]::after {
-  border-top-style: solid;
-  border-top-color: var(--zen-primary-color, #7aa2f7);
-}
-
 .zen-proxy-divider[drop-side]::before,
 .zen-proxy-divider[drop-side]::after {
   border-top-style: solid;
