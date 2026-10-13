@@ -8,18 +8,25 @@
   },
   "preferences": "preferences.json",
   "scripts": {
+    "zen-proxy-routing.sys.mjs": {},
     "zen-proxy-divider.uc.mjs": {
       "include": [
         "chrome://browser/content/browser.xhtml",
         "chrome://browser/content/browser.xul"
       ]
+    },
+    "zen-proxy-color-picker.uc.js": {
+      "include": [
+        "chrome://browser/content/preferences/preferences.xhtml",
+        "about:preferences*"
+      ]
     }
   },
   "readme": "https://raw.githubusercontent.com/greeeenie/zen-proxy-sections/main/README.md",
   "author": "greenie",
-  "version": "0.10.2",
+  "version": "0.12.2",
   "tags": ["Scripts", "Zen", "Proxy", "Tabs"],
   "createdAt": "2026-07-15",
-  "updatedAt": "2026-07-21",
+  "updatedAt": "2026-10-13",
   "fork": ["zen"]
 }

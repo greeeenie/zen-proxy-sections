@@ -1,12 +1,12 @@
 [
   {
     "property": "extensions.zen-proxy-divider.style",
-    "label": "Visual style",
+    "label": "Sidebar style",
     "type": "dropdown",
     "defaultValue": "divider",
     "options": [
       {
-        "label": "Divider line",
+        "label": "Capsule divider",
         "value": "divider"
       },
       {
@@ -18,7 +18,7 @@
   },
   {
     "property": "extensions.zen-proxy-divider.divider-order",
-    "label": "Divider line: order (top to bottom)",
+    "label": "Section order",
     "type": "dropdown",
     "defaultValue": "proxy-direct",
     "options": [
@@ -31,11 +31,17 @@
         "value": "direct-proxy"
       }
     ],
-    "placeholder": false
+    "placeholder": false,
+    "conditions": {
+      "if": {
+        "property": "extensions.zen-proxy-divider.style",
+        "value": "divider"
+      }
+    }
   },
   {
     "property": "extensions.zen-proxy-divider.sections-order",
-    "label": "Section headers: order (top to bottom)",
+    "label": "Section order",
     "type": "dropdown",
     "defaultValue": "proxy-direct",
     "options": [
@@ -48,14 +54,24 @@
         "value": "direct-proxy"
       }
     ],
-    "placeholder": false
+    "placeholder": false,
+    "conditions": {
+      "if": {
+        "property": "extensions.zen-proxy-divider.style",
+        "value": "sections"
+      }
+    }
   },
   {
     "property": "extensions.zen-proxy-divider.indicator-position",
-    "label": "Proxy indicator: position",
+    "label": "Proxy indicator",
     "type": "dropdown",
-    "defaultValue": "row",
+    "defaultValue": "edge",
     "options": [
+      {
+        "label": "Left edge",
+        "value": "edge"
+      },
       {
         "label": "End of the tab row",
         "value": "row"
@@ -69,7 +85,7 @@
   },
   {
     "property": "extensions.zen-proxy-divider.indicator-color",
-    "label": "Proxy indicator: color",
+    "label": "Indicator color",
     "type": "dropdown",
     "defaultValue": "green",
     "options": [
@@ -85,8 +101,37 @@
     "placeholder": false
   },
   {
+    "property": "extensions.zen-proxy-divider.accent-color",
+    "label": "Accent color",
+    "type": "string",
+    "defaultValue": "#55d8be",
+    "placeholder": "#55d8be",
+    "border": "value"
+  },
+  {
+    "property": "extensions.zen-proxy-divider.external-route",
+    "label": "Outside Zen",
+    "type": "dropdown",
+    "defaultValue": "manual",
+    "options": [
+      {
+        "label": "Proxy",
+        "value": "proxy"
+      },
+      {
+        "label": "Direct",
+        "value": "direct"
+      },
+      {
+        "label": "Manual (Unsorted)",
+        "value": "manual"
+      }
+    ],
+    "placeholder": false
+  },
+  {
     "property": "extensions.zen-proxy-divider.new-tab-side",
-    "label": "New tabs: default side",
+    "label": "New tab",
     "type": "dropdown",
     "defaultValue": "proxy",
     "options": [
@@ -97,6 +142,35 @@
       {
         "label": "Direct",
         "value": "direct"
+      },
+      {
+        "label": "Manual (Unsorted)",
+        "value": "manual"
+      }
+    ],
+    "placeholder": false
+  },
+  {
+    "property": "extensions.zen-proxy-divider.link-route",
+    "label": "From another tab",
+    "type": "dropdown",
+    "defaultValue": "inherit",
+    "options": [
+      {
+        "label": "Proxy",
+        "value": "proxy"
+      },
+      {
+        "label": "Direct",
+        "value": "direct"
+      },
+      {
+        "label": "Inherit",
+        "value": "inherit"
+      },
+      {
+        "label": "Manual (Unsorted)",
+        "value": "manual"
       }
     ],
     "placeholder": false
@@ -104,7 +178,7 @@
   {
     "type": "checkbox",
     "property": "extensions.zen-proxy-divider.reload-on-switch",
-    "label": "Reload a tab when it switches sides",
+    "label": "Reload on route change",
     "defaultValue": true
   }
 ]

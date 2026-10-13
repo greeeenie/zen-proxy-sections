@@ -41,25 +41,6 @@
   cursor: grabbing;
 }
 
-.zen-proxy-divider[drop-side]::before,
-.zen-proxy-divider[drop-side]::after {
-  border-top-style: solid;
-  border-top-color: var(--zen-primary-color, #7aa2f7);
-}
-
-.zen-proxy-divider[drop-side] .zen-proxy-divider-label {
-  opacity: 1;
-  color: var(--zen-primary-color, #7aa2f7);
-}
-
-.zen-proxy-divider[drop-side="below"] {
-  box-shadow: 0 6px 10px -5px var(--zen-primary-color, #7aa2f7);
-}
-
-.zen-proxy-divider[drop-side="above"] {
-  box-shadow: 0 -6px 10px -5px var(--zen-primary-color, #7aa2f7);
-}
-
 /* ---- Sections mode (extensions.zen-proxy-divider.style = "sections") ---- */
 
 .zen-proxy-section-header {
@@ -122,8 +103,8 @@
 
 /* Static up/down arrows next to PROXY/DIRECT in divider-line mode */
 .zen-proxy-arrow-icon {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   flex: none;
   background-color: currentColor;
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v10M3.5 8 8 12.5 12.5 8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -139,11 +120,55 @@
 }
 
 .zen-proxy-divider[mode="divider"] {
-  gap: 3px;
+  --zen-proxy-divider-stroke: color-mix(in srgb, currentColor 18%, transparent);
+  gap: 4px;
+  min-height: 26px;
 }
 
-.zen-proxy-divider:hover .zen-proxy-arrow-icon {
-  opacity: 0.9;
+.zen-proxy-divider[mode="divider"]::before,
+.zen-proxy-divider[mode="divider"]::after {
+  border-top: 1px solid var(--zen-proxy-divider-stroke);
+}
+
+.zen-proxy-divider-capsule {
+  display: flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--zen-proxy-divider-stroke);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.zen-proxy-divider-side {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zen-proxy-divider-separator {
+  flex: none;
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 7px;
+  background-color: var(--zen-proxy-divider-stroke);
+}
+
+.zen-proxy-divider[mode="divider"] .zen-proxy-divider-label {
+  font-size: 9px;
+  opacity: 0.65;
+}
+
+.zen-proxy-divider[mode="divider"] .zen-proxy-divider-label[data-route="proxy"] {
+  color: var(--zen-proxy-accent-color);
+  opacity: 0.85;
+}
+
+.zen-proxy-divider[mode="divider"] .zen-proxy-arrow-icon[data-route="proxy"] {
+  background-color: var(--zen-proxy-accent-color);
+  opacity: 0.85;
 }
 
 .zen-proxy-section-header[zen-section-collapsed] .zen-proxy-arrow,
@@ -171,18 +196,20 @@
   display: none;
 }
 
-/* Dot indicator on every tab whose traffic goes through the proxy.
-   The dot is a real element injected by the script (geometry is inline —
+/* Proxy indicator on every tab whose traffic goes through the proxy.
+   The indicator is a real element injected by the script (geometry is inline —
    Zen's grid-based tab internals break flow-positioned pseudo-elements);
    only the color lives here.
-   Color: pale green by default, neutral gray via the indicator-color pref. */
+   Color: custom accent by default, neutral gray via the indicator-color pref. */
 :root {
-  --zen-proxy-dot-color: color-mix(in srgb, #3fb950 80%, transparent);
+  --zen-proxy-accent-color: var(--zen-proxy-custom-accent, #55d8be);
+  --zen-proxy-dot-color: var(--zen-proxy-accent-color);
   --zen-proxy-dot-glow: 0 0 4px
-    color-mix(in srgb, #3fb950 45%, transparent);
+    color-mix(in srgb, var(--zen-proxy-accent-color) 45%, transparent);
 }
 
 :root[zen-proxy-indicator-color="gray"] {
+  --zen-proxy-accent-color: #9ba3ab;
   --zen-proxy-dot-color: color-mix(in srgb, #9ba3ab 55%, transparent);
   --zen-proxy-dot-glow: none;
 }
@@ -190,4 +217,107 @@
 .zen-proxy-dot {
   background: var(--zen-proxy-dot-color);
   box-shadow: var(--zen-proxy-dot-glow);
+}
+
+/* External links remain inert URL cards until dropped into a route. */
+#zen-proxy-inbox {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  order: -1;
+  align-self: stretch;
+  min-width: 0;
+  margin: 6px 8px;
+  padding: 8px;
+  border: 1px dashed color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 10px;
+  -moz-window-dragging: no-drag;
+}
+
+/* Reserve the slot between New Tab and normal tabs, independently of DOM
+   insertion order. Essentials keep their own measured workspace padding. */
+.zen-workspace-normal-tabs-section:has(> #zen-proxy-inbox) > #tabbrowser-arrowscrollbox-periphery,
+#tabbrowser-arrowscrollbox:has(> #zen-proxy-inbox) > #tabbrowser-arrowscrollbox-periphery {
+  order: -2 !important;
+}
+
+#zen-proxy-inbox[hidden] {
+  display: none !important;
+}
+
+.zen-proxy-inbox-heading {
+  line-height: 1.4;
+  margin-bottom: 6px;
+  font-size: 10px;
+  opacity: 0.65;
+}
+
+.zen-proxy-inbox-list {
+  min-width: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.zen-proxy-inbox-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: max(36px, var(--tab-min-height, 36px));
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: grab;
+}
+
+.zen-proxy-inbox-entry:hover {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.zen-proxy-inbox-entry span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.zen-proxy-inbox-close {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-small, 4px);
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+}
+
+.zen-proxy-inbox-entry:hover .zen-proxy-inbox-close {
+  opacity: 0.45;
+  pointer-events: auto;
+}
+
+.zen-proxy-inbox-close::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  mask: url("chrome://global/skin/icons/close.svg") center / contain no-repeat;
+}
+
+.zen-proxy-inbox-entry .zen-proxy-inbox-close:hover,
+.zen-proxy-inbox-entry .zen-proxy-inbox-close:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }

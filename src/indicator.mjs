@@ -1,21 +1,31 @@
-// The dot indicator on proxied tabs.
+// Indicator on proxied tabs: row dot, favicon dot, or left-edge bar.
 
-import { DOT_CLASS, getIndicatorColor } from "./prefs.mjs";
+import { DOT_CLASS, getAccentColor, getIndicatorColor } from "./prefs.mjs";
 
 // Geometry is set inline: Zen's tab internals use grid layouts that break
-// flow-positioned pseudo-elements, so the dot is a real element with
-// absolute inline positioning. Color comes from chrome.css variables.
+// flow-positioned pseudo-elements. Color comes from chrome.css variables.
 function positionDot(dot, tab, mode) {
   const s = dot.style;
   s.position = "absolute";
-  s.width = "5px";
-  s.height = "5px";
-  s.borderRadius = "50%";
   s.pointerEvents = "none";
   s.zIndex = "1";
   s.top = "";
   s.bottom = "";
   s.transform = "";
+  s.insetInlineStart = "";
+  s.insetInlineEnd = "";
+  if (mode === "edge") {
+    s.width = "3px";
+    s.height = "auto";
+    s.borderRadius = "3px";
+    s.insetInlineStart = "3px";
+    s.top = "20%";
+    s.bottom = "20%";
+    return;
+  }
+  s.width = "5px";
+  s.height = "5px";
+  s.borderRadius = "50%";
   if (mode === "favicon") {
     // List tabs have an icon container wider than the favicon itself,
     // so the badge needs a nudge left to land on the icon corner.
@@ -41,7 +51,7 @@ export function updateDot(tab, proxyOn, mode) {
   if (!content) {
     return;
   }
-  let anchor = content;
+  let anchor = mode === "edge" ? tab : content;
   if (mode === "favicon") {
     anchor = tab.querySelector(".tab-icon-stack") || content;
   }
@@ -64,6 +74,7 @@ export function updateDot(tab, proxyOn, mode) {
 // position is applied per-dot in positionDot().
 export function applyIndicatorAttrs() {
   const root = document.documentElement;
+  root.style.setProperty("--zen-proxy-custom-accent", getAccentColor());
   if (getIndicatorColor() === "gray") {
     root.setAttribute("zen-proxy-indicator-color", "gray");
   } else {

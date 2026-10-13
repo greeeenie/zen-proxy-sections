@@ -5,6 +5,8 @@ $ErrorActionPreference = "Stop"
 $repo = $PSScriptRoot
 $files = @(
   "zen-proxy-divider.uc.mjs",
+  "zen-proxy-routing.sys.mjs",
+  "zen-proxy-color-picker.uc.js",
   "chrome.css",
   "theme.json",
   "preferences.json",
@@ -16,7 +18,8 @@ if (-not (Test-Path $profilesRoot)) {
   Write-Error "Zen profiles directory not found: $profilesRoot"
 }
 
-$version = (Get-Content (Join-Path $repo "theme.json") -Raw | ConvertFrom-Json).version
+$theme = Get-Content (Join-Path $repo "theme.json") -Raw | ConvertFrom-Json
+$version = $theme.version
 
 $deployed = 0
 foreach ($profile in Get-ChildItem $profilesRoot -Directory) {
@@ -35,6 +38,7 @@ foreach ($profile in Get-ChildItem $profilesRoot -Directory) {
       $mods = Get-Content $modsJsonPath -Raw | ConvertFrom-Json
       if ($mods.'zen-proxy-divider') {
         $mods.'zen-proxy-divider'.version = $version
+        $mods.'zen-proxy-divider'.scripts = $theme.scripts
         # A local development build must not be replaced on the next start.
         $mods.'zen-proxy-divider'.'no-updates' = $true
         # NB: not Set-Content -Encoding utf8 — PS 5.1 writes a UTF-8 BOM,

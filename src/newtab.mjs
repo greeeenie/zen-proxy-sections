@@ -1,6 +1,4 @@
-// New tab placement: a tab opened FROM another tab (link, target=_blank,
-// middle click) inherits the opener's proxy side; a fresh tab (Ctrl+T,
-// the New Tab button) goes to the side chosen in the mod settings.
+// Route each creation source using its own setting, before the first load.
 // Alt+Enter in the URL bar sends the tab to the opposite of the default
 // side instead.
 
@@ -15,19 +13,210 @@ import {
 import { isManualTab, openerTabFor } from "./tabs.mjs";
 import {
   directBrowserIds,
-  lastRouteProxied,
+  initialProxySides,
   browserIdForTab,
 } from "./proxy.mjs";
-import { maybeReloadTab } from "./update.mjs";
-import { allDividers } from "./divider.mjs";
+import { recompute } from "./update.mjs";
+import { allDividers, ensureDividers } from "./divider.mjs";
+import { inbox } from "./inbox.mjs";
 import {
   placementWouldMove,
-  placementHolds,
   applyPlacement,
 } from "./dnd.mjs";
 
 let initTime = 0;
 let altSideUntil = 0;
+let currentCreation = null;
+let originalAddTab = null;
+let wrappedAddTab = null;
+let originalLoadTabs = null;
+let wrappedLoadTabs = null;
+const openingDecisions = new WeakMap();
+const pendingNavigation = new WeakMap();
+const browserHooks = new Map();
+
+function creationMode(options) {
+  const explicit = options.eventDetail?.zenProxyRoute;
+  if (typeof explicit === "boolean") {
+    return explicit ? "proxy" : "direct";
+  }
+  if (options.fromExternal) {
+    return inbox.routeFor("external");
+  }
+  if (peekAltSide()) {
+    return newTabsGoDirect() ? "proxy" : "direct";
+  }
+  const linked = !options._forZenEmptyTab && !gURLBar?.hasAttribute("zen-newtab") &&
+    (options.openerBrowser || options.relatedToCurrent || options.referrerInfo?.originalReferrer);
+  return inbox.routeFor(linked ? "link" : "newtab");
+}
+
+function discardBufferedTab(tab) {
+  pendingNavigation.delete(tab);
+  setTimeout(() => {
+    if (!tab.isConnected) {
+      return;
+    }
+    if (tab.hasAttribute("zen-empty-tab")) {
+      tab.linkedBrowser.userTypedValue = null;
+      gURLBar.handleRevert();
+    } else {
+      gBrowser.removeTab(tab, { animate: false, skipSessionStore: true });
+    }
+  }, 0);
+}
+
+function routeFirstNavigation(tab, url) {
+  let mode = pendingNavigation.get(tab);
+  if (!mode && !tab.hasAttribute("zen-empty-tab")) {
+    return false;
+  }
+  if (!/^(https?|file|ftp):/i.test(url)) {
+    return false;
+  }
+  if (!mode || mode === "newtab") {
+    mode = inbox.routeFor("newtab");
+  }
+  if (mode === "manual" && inbox.bufferExternalURL(window, url)) {
+    discardBufferedTab(tab);
+    return true;
+  }
+  pendingNavigation.delete(tab);
+  openingDecisions.set(tab, { proxyOn: mode !== "direct", reason: "first navigation setting" });
+  initialProxySides.set(tab, mode !== "direct");
+  preRouteNewTab(tab);
+  ensureDividers();
+  placeNewTab(tab);
+  setTimeout(() => {
+    placeNewTab(tab);
+    initialProxySides.delete(tab);
+    openingDecisions.delete(tab);
+    recompute();
+  }, 300);
+  return false;
+}
+
+function hookBrowser(tab) {
+  const browser = tab.linkedBrowser;
+  if (!browser || browserHooks.has(browser)) {
+    return;
+  }
+  const hooks = {};
+  for (const method of ["loadURI", "fixupAndLoadURIString"]) {
+    const original = browser[method];
+    if (typeof original !== "function") {
+      continue;
+    }
+    const wrapped = function (uri, ...args) {
+      if (pendingNavigation.has(tab) || tab.hasAttribute("zen-empty-tab")) {
+        let url = uri?.spec || uri;
+        if (method === "fixupAndLoadURIString" && typeof url === "string") {
+          const flags = Ci.nsIURIFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP |
+            Ci.nsIURIFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS;
+          url = Services.uriFixup.getFixupURIInfo(url, flags).preferredURI?.spec || url;
+        }
+        if (routeFirstNavigation(tab, url)) {
+          return;
+        }
+      }
+      return original.call(this, uri, ...args);
+    };
+    hooks[method] = { original, wrapped };
+    browser[method] = wrapped;
+  }
+  browserHooks.set(browser, hooks);
+}
+
+function handleBrowserInserted(event) {
+  hookBrowser(event.target);
+}
+
+function forgetBrowser(event) {
+  pendingNavigation.delete(event.target);
+  browserHooks.delete(event.target.linkedBrowser);
+}
+
+// window.open can allocate an about:blank context first and navigate it in
+// the content process later. Cancel that document channel before any HTTP
+// connection, then send its URL to Unsorted like chrome-initiated loads.
+const openingRequestObserver = {
+  observe(subject) {
+    const channel = subject.QueryInterface(Ci.nsIChannel);
+    const info = channel.loadInfo;
+    if (info.externalContentPolicyType !== Ci.nsIContentPolicy.TYPE_DOCUMENT) {
+      return;
+    }
+    const id = info.browsingContext?.top?.browserId;
+    const tab = gBrowser.tabs.find(t => browserIdForTab(t) === id && pendingNavigation.has(t));
+    if (tab && routeFirstNavigation(tab, channel.URI.spec)) {
+      channel.cancel(Components.results.NS_BINDING_ABORTED);
+    }
+  },
+};
+
+export function installNewTabRouting() {
+  markInitTime();
+  originalAddTab = gBrowser.addTab;
+  wrappedAddTab = function (url, options = {}) {
+    const live = !options.skipLoad && !options.createLazyBrowser && options.insertTab !== false;
+    const mode = creationMode(options);
+    const buffered = live && mode === "manual" && !options.pinned && !options.essential &&
+      inbox.bufferExternalURL(window, url);
+    if (buffered) {
+      url = "about:blank";
+      options = { ...options, skipLoad: true, inBackground: true };
+    }
+    const previous = currentCreation;
+    currentCreation = { live, mode, buffered };
+    try {
+      const tab = originalAddTab.call(this, url, options);
+      if (tab && buffered) {
+        discardBufferedTab(tab);
+      }
+      return tab;
+    } finally {
+      currentCreation = previous;
+    }
+  };
+  gBrowser.addTab = wrappedAddTab;
+  originalLoadTabs = gBrowser.loadTabs;
+  wrappedLoadTabs = function (urls, options = {}) {
+    if (options.fromExternal && inbox.routeFor("external") === "manual") {
+      urls = urls.filter((url) => !inbox.bufferExternalURL(window, url));
+      if (!urls.length) {
+        return [];
+      }
+    }
+    return originalLoadTabs.call(this, urls, options);
+  };
+  gBrowser.loadTabs = wrappedLoadTabs;
+  for (const tab of gBrowser.tabs) {
+    hookBrowser(tab);
+  }
+  gBrowser.tabContainer.addEventListener("TabBrowserInserted", handleBrowserInserted);
+  gBrowser.tabContainer.addEventListener("TabClose", forgetBrowser);
+  Services.obs.addObserver(openingRequestObserver, "http-on-opening-request");
+}
+
+export function removeNewTabRouting() {
+  Services.obs.removeObserver(openingRequestObserver, "http-on-opening-request");
+  gBrowser.tabContainer.removeEventListener("TabBrowserInserted", handleBrowserInserted);
+  gBrowser.tabContainer.removeEventListener("TabClose", forgetBrowser);
+  for (const [browser, hooks] of browserHooks) {
+    for (const [method, { original, wrapped }] of Object.entries(hooks)) {
+      if (browser[method] === wrapped) {
+        browser[method] = original;
+      }
+    }
+  }
+  browserHooks.clear();
+  if (gBrowser.addTab === wrappedAddTab) {
+    gBrowser.addTab = originalAddTab;
+  }
+  if (gBrowser.loadTabs === wrappedLoadTabs) {
+    gBrowser.loadTabs = originalLoadTabs;
+  }
+}
 
 export function markInitTime() {
   initTime = Date.now();
@@ -106,8 +295,16 @@ function peekAltSide() {
 // Where should this tab go? proxyOn is the side's proxy state; the flag
 // is only consumed by the final placement, peeked by the pre-route.
 function decideNewTabSide(tab, consumeFlag) {
+  const opening = openingDecisions.get(tab);
+  if (opening) {
+    return opening;
+  }
   if (consumeFlag ? consumeAltSide() : peekAltSide()) {
     return { proxyOn: newTabsGoDirect(), reason: "Alt+Enter — alternate side" };
+  }
+  const mode = currentCreation?.mode || inbox.routeFor(openerTabFor(tab) ? "link" : "newtab");
+  if (mode !== "inherit") {
+    return { proxyOn: mode !== "direct", mode, reason: `${mode} setting` };
   }
   const opener = openerTabFor(tab);
   if (opener) {
@@ -135,8 +332,8 @@ function decideNewTabSide(tab, consumeFlag) {
 
 // Route the browser BEFORE its first network request: the channel filter
 // consults directBrowserIds the moment the load starts, which is earlier
-// than the DOM placement and the recompute it triggers. A recompute may
-// briefly override this, so verifyRoute() below is the safety net.
+// than any deferred DOM update. initialProxySides keeps recomputes from
+// changing the route during Zen's remaining insertion steps.
 function preRouteNewTab(tab) {
   if (
     tab.pinned ||
@@ -158,32 +355,6 @@ function preRouteNewTab(tab) {
   log("pre-routed new tab:", proxyOn ? "proxy" : "direct", `(${reason})`);
 }
 
-// The first document load can still race the pre-route; compare the route
-// it actually took with the intended one and reload once if they differ.
-function verifyRoute(tab, proxyOn) {
-  if (!tab.isConnected) {
-    return;
-  }
-  const actual = lastRouteProxied.get(browserIdForTab(tab));
-  if (actual === undefined || actual === proxyOn) {
-    return;
-  }
-  log(
-    "first load took the wrong route — reloading through",
-    proxyOn ? "proxy" : "direct"
-  );
-  maybeReloadTab(tab, true);
-}
-
-function scheduleRouteVerify(tab, proxyOn) {
-  // Late checks catch slow sites whose document response arrives after
-  // the early ones (a corrected load resets lastRouteProxied, so a
-  // successful reload makes the later checks no-ops).
-  for (const delay of [700, 2000, 5000]) {
-    setTimeout(() => verifyRoute(tab, proxyOn), delay);
-  }
-}
-
 function inStartupWindow() {
   // Session restore replays TabOpen for every saved tab right after
   // startup — their order is already correct, do not reshuffle it.
@@ -191,13 +362,48 @@ function inStartupWindow() {
 }
 
 export function handleTabOpen(event) {
-  if (inStartupWindow()) {
+  const tab = event.target;
+  hookBrowser(tab);
+  if (currentCreation?.buffered) {
     return;
   }
-  const tab = event.target;
+  const explicit = event.detail?.zenProxyRoute;
+  if (tab.hasAttribute("pending") && typeof explicit !== "boolean") {
+    return;
+  }
+  if (inStartupWindow() && !currentCreation?.live && typeof explicit !== "boolean") {
+    return;
+  }
+  const decision = typeof explicit === "boolean"
+    ? { proxyOn: explicit, reason: "incoming URL: chosen side" }
+    : decideNewTabSide(tab, true);
+  if (decision.mode === "manual" && !tab.pinned && !tab.hasAttribute("zen-essential")) {
+    pendingNavigation.set(tab, tab.hasAttribute("zen-empty-tab") ? "newtab" : "manual");
+    return;
+  }
+  if (tab.hasAttribute("zen-empty-tab")) {
+    pendingNavigation.set(tab, "newtab");
+  }
+  openingDecisions.set(tab, decision);
+  initialProxySides.set(tab, decision.proxyOn);
   preRouteNewTab(tab);
-  // Let Zen finish inserting the tab (and the opener wiring settle).
-  setTimeout(() => placeNewTab(tab), 0);
+  // This listener runs inside addTab(), before its first document load.
+  // Establish both the network route and the sidebar position synchronously.
+  ensureDividers();
+  placeNewTab(tab);
+  setTimeout(() => {
+    if (initialProxySides.has(tab)) {
+      placeNewTab(tab);
+    }
+  }, 0);
+  setTimeout(() => {
+    if (initialProxySides.has(tab)) {
+      placeNewTab(tab);
+      initialProxySides.delete(tab);
+      openingDecisions.delete(tab);
+      recompute();
+    }
+  }, 300);
 }
 
 // Zen's fresh tabs (Ctrl+T, the New Tab button) start as an "empty tab"
@@ -240,17 +446,11 @@ function placeNewTab(tab) {
   const placeBelow = proxyOn ? proxyIsBelow : !proxyIsBelow;
   const placement = { divider, tabs: [tab], placeBelow };
   const side = proxyOn ? "proxy" : "direct";
-  scheduleRouteVerify(tab, proxyOn);
   if (!placementWouldMove(placement)) {
     log("new tab already on the", side, "side", `(${reason})`);
     return;
   }
   log("new tab →", side, `(${reason})`);
   applyPlacement(placement);
-  // Zen may still be animating/inserting; verify once after it settles.
-  setTimeout(() => {
-    if (!placementHolds(placement)) {
-      applyPlacement(placement);
-    }
-  }, 300);
+  recompute();
 }

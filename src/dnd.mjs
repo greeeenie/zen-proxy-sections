@@ -27,6 +27,7 @@ import {
 } from "./tabs.mjs";
 import { allDividers } from "./divider.mjs";
 import { scheduleUpdate } from "./update.mjs";
+import { initialProxySides } from "./proxy.mjs";
 
 let lastDragInfo = null;
 let pendingPlacement = null;
@@ -113,7 +114,7 @@ export function placementWouldMove({ divider, tabs, placeBelow }) {
 // Zen's own drop indicator knows nothing about the divider and points at
 // the wrong slot when a tab is about to cross it. Glow the divider on
 // the side the tab will actually land on instead.
-function updateDropHint(placement) {
+export function updateDropHint(placement) {
   for (const divider of allDividers()) {
     if (placement && divider === placement.divider) {
       divider.setAttribute(
@@ -262,6 +263,9 @@ function applyPendingPlacement() {
   pendingPlacement = null;
   if (!placement) {
     return;
+  }
+  for (const tab of placement.tabs) {
+    initialProxySides.delete(tab);
   }
   applyPlacement(placement);
   // Zen may re-shuffle tabs asynchronously right after a drag; verify a

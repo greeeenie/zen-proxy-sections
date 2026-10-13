@@ -9,6 +9,7 @@ import {
   PREF_SECTIONS_ORDER,
   PREF_INDICATOR_POS,
   PREF_INDICATOR_COLOR,
+  PREF_ACCENT_COLOR,
   getStyleMode,
   log,
   logError,
@@ -31,10 +32,13 @@ import {
   handleTabOpen,
   handleTabAttrMutation,
   handleKeyDown,
+  installNewTabRouting,
+  removeNewTabRouting,
 } from "./newtab.mjs";
 import { setupContextMenu, removeContextMenu } from "./menu.mjs";
+import { setupInbox, removeInbox, inbox } from "./inbox.mjs";
 
-const VERSION = "0.10.2";
+const VERSION = "0.12.2";
 
 const STYLE_PREFS = [
   PREF_STYLE,
@@ -42,6 +46,7 @@ const STYLE_PREFS = [
   PREF_SECTIONS_ORDER,
   PREF_INDICATOR_POS,
   PREF_INDICATOR_COLOR,
+  PREF_ACCENT_COLOR,
 ];
 
 let mutationObserver = null;
@@ -117,11 +122,14 @@ function addListeners() {
     Services.prefs.addObserver(pref, stylePrefObserver);
   }
   setupContextMenu();
+  setupInbox();
   window.addEventListener("unload", teardown, { once: true });
 }
 
 function teardown() {
   unregisterFilter();
+  removeNewTabRouting();
+  removeInbox();
   removeContextMenu();
   try {
     gBrowser.tabContainer.removeEventListener("TabOpen", handleTabOpen);
@@ -158,6 +166,7 @@ function init() {
     applyIndicatorAttrs();
     ensureDividers();
     recompute();
+    inbox.resumeExternalURLs(window);
     log(
       `initialized (v${VERSION}, style:`,
       getStyleMode() + ");",
@@ -170,6 +179,11 @@ function init() {
 }
 
 export function bootstrap() {
+  // Sine runs this after the chrome window loads. Install routing immediately;
+  // sidebar styling can wait for Zen's delayed workspace initialization.
+  registerFilter();
+  installNewTabRouting();
+  gBrowser.tabContainer.addEventListener("TabOpen", handleTabOpen);
   if (gBrowserInit?.delayedStartupFinished) {
     // Give Zen workspaces a moment to finish building the sidebar DOM.
     setTimeout(init, 300);

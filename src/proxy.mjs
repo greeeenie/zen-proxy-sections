@@ -3,10 +3,9 @@
 
 export const directBrowserIds = new Set();
 
-// Route the last top-level document load of each browser actually took
-// (true = proxied). Lets newtab.mjs detect a first load that raced ahead
-// of the side assignment and went through the wrong route.
-export const lastRouteProxied = new Map();
+// Keeps a just-created tab's chosen route stable while Zen finishes inserting
+// or routing it to a workspace. TabOpen runs before the first browser load.
+export const initialProxySides = new WeakMap();
 
 let filterRegistered = false;
 
@@ -17,13 +16,6 @@ const proxyFilter = {
       const browserId = browserIdForChannel(channel);
       if (result && browserId && directBrowserIds.has(browserId)) {
         result = null;
-      }
-      if (
-        browserId &&
-        channel.loadInfo?.externalContentPolicyType ===
-          Ci.nsIContentPolicy.TYPE_DOCUMENT
-      ) {
-        lastRouteProxied.set(browserId, result !== null);
       }
     } catch (e) {}
     callback.onProxyFilterResult(result);

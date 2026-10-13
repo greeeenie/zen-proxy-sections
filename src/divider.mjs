@@ -84,34 +84,37 @@ function createArrow() {
 }
 
 // Static up/down SVG arrow shown next to PROXY/DIRECT in divider-line mode
-function createArrowIcon(direction) {
+function createArrowIcon(direction, route) {
   const icon = document.createXULElement("hbox");
   icon.className = ARROW_ICON_CLASS;
   icon.setAttribute("direction", direction);
+  icon.setAttribute("data-route", route);
   return icon;
 }
 
-function createDividerLabel(value) {
+function createDividerLabel(value, route) {
   const label = document.createXULElement("label");
   label.className = DIVIDER_CLASS + "-label";
   label.setAttribute("value", value);
+  if (route) {
+    label.setAttribute("data-route", route);
+  }
   return label;
+}
+
+function createDividerSide(route, direction) {
+  const side = document.createXULElement("hbox");
+  side.className = DIVIDER_CLASS + "-side";
+  side.appendChild(createDividerLabel(route.toUpperCase(), route));
+  side.appendChild(createArrowIcon(direction, route));
+  return side;
 }
 
 function applyDividerStyle(divider) {
   const mode = getStyleMode();
   const reversed = isReversed();
   divider.setAttribute("mode", mode);
-  divider.setAttribute(
-    "tooltiptext",
-    mode === "sections"
-      ? reversed
-        ? "PROXY section: tabs below go through the proxy, tabs above connect directly. Drag to move the boundary, click to collapse."
-        : "DIRECT section: tabs below connect directly, tabs above go through the proxy. Drag to move the boundary, click to collapse."
-      : reversed
-        ? "Tabs above connect directly, tabs below go through the proxy. Drag to move."
-        : "Tabs above go through the proxy, tabs below connect directly. Drag to move."
-  );
+  divider.setAttribute("tooltiptext", "Drag to move");
   // Rebuild children only when mode/order actually changed
   const sig = mode + ":" + (reversed ? "r" : "n");
   if (divider.getAttribute("content-sig") === sig) {
@@ -126,13 +129,19 @@ function applyDividerStyle(divider) {
     divider.appendChild(createDividerLabel(reversed ? "PROXY" : "DIRECT"));
   } else {
     const [top, bottom] = reversed
-      ? ["DIRECT", "PROXY"]
-      : ["PROXY", "DIRECT"];
-    divider.appendChild(createDividerLabel(top));
-    divider.appendChild(createArrowIcon("up"));
-    divider.appendChild(createDividerLabel("·"));
-    divider.appendChild(createDividerLabel(bottom));
-    divider.appendChild(createArrowIcon("down"));
+      ? ["direct", "proxy"]
+      : ["proxy", "direct"];
+    const capsule = document.createElementNS(
+      "http://www.w3.org/1999/xhtml",
+      "div"
+    );
+    capsule.className = DIVIDER_CLASS + "-capsule";
+    const separator = document.createXULElement("hbox");
+    separator.className = DIVIDER_CLASS + "-separator";
+    capsule.appendChild(createDividerSide(top, "up"));
+    capsule.appendChild(separator);
+    capsule.appendChild(createDividerSide(bottom, "down"));
+    divider.appendChild(capsule);
   }
 }
 

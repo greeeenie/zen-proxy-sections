@@ -14,7 +14,7 @@ import {
   logError,
 } from "./prefs.mjs";
 import { unpinnedTabs, workspaceKeyFor, isManualTab } from "./tabs.mjs";
-import { directBrowserIds, browserIdForTab } from "./proxy.mjs";
+import { directBrowserIds, browserIdForTab, initialProxySides } from "./proxy.mjs";
 import { updateDot, applyIndicatorAttrs } from "./indicator.mjs";
 import { allDividers, ensureDividers, savePositions } from "./divider.mjs";
 
@@ -90,6 +90,10 @@ export function recompute() {
       const below = !!(divider.compareDocumentPosition(tab) & FOLLOWING);
       direct = reversed ? !below : below;
       break;
+    }
+    const initialSide = initialProxySides.get(tab);
+    if (initialSide !== undefined) {
+      direct = !initialSide;
     }
     setProxyState(tab, !direct, indicatorMode);
     const hide =

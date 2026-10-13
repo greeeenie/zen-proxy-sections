@@ -10,6 +10,7 @@ export const PREF_INDICATOR_POS =
   "extensions.zen-proxy-divider.indicator-position";
 export const PREF_INDICATOR_COLOR =
   "extensions.zen-proxy-divider.indicator-color";
+export const PREF_ACCENT_COLOR = "extensions.zen-proxy-divider.accent-color";
 export const PREF_NEW_TAB_SIDE = "extensions.zen-proxy-divider.new-tab-side";
 export const PREF_RELOAD_ON_SWITCH =
   "extensions.zen-proxy-divider.reload-on-switch";
@@ -69,12 +70,10 @@ export function newTabsGoDirect() {
 
 export function getIndicatorPos() {
   try {
-    return Services.prefs.getStringPref(PREF_INDICATOR_POS, "row") ===
-      "favicon"
-      ? "favicon"
-      : "row";
+    const value = Services.prefs.getStringPref(PREF_INDICATOR_POS, "edge");
+    return ["edge", "favicon", "row"].includes(value) ? value : "edge";
   } catch (e) {
-    return "row";
+    return "edge";
   }
 }
 
@@ -83,6 +82,16 @@ export function getIndicatorColor() {
     return Services.prefs.getStringPref(PREF_INDICATOR_COLOR, "green");
   } catch (e) {
     return "green";
+  }
+}
+
+export function getAccentColor() {
+  const fallback = "#55d8be";
+  try {
+    const value = Services.prefs.getStringPref(PREF_ACCENT_COLOR, fallback).trim();
+    return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : fallback;
+  } catch (e) {
+    return fallback;
   }
 }
 

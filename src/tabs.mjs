@@ -91,11 +91,8 @@ export function openerTabFor(tab) {
       candidates.push(tab.openerTab);
     }
   } catch (e) {}
-  try {
-    if (tab.owner) {
-      candidates.push(tab.owner);
-    }
-  } catch (e) {}
+  // `owner` is also assigned to unrelated foreground tabs for close-selection
+  // behavior. It is not evidence that a link was opened from that tab.
   try {
     // Covers window.open/target=_blank even when openerTab is not set.
     const browser =
